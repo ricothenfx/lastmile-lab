@@ -14,8 +14,8 @@ apps/services/*/bin/
 *.test
 *.out
 
-# Data & artefak lokal
-data/
+# Data & artefak lokal (root /data saja — apps/services/rider-sim/data/ tetap di-track)
+/data/
 reports/*.json.tmp
 
 # OS / editor
