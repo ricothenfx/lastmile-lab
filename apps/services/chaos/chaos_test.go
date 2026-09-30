@@ -135,7 +135,8 @@ func TestTrackerChaosKillFlow(t *testing.T) {
 	}
 }
 
-// Restart lebih cepat dari probe: t_detect kosong → diisi saat recovery.
+// Pulih di antara dua probe (tidak ada kegagalan teramati): probe OK yang
+// in-flight saat kill TIDAK menutup incident; butuh 3 OK beruntun.
 func TestTrackerFastRecovery(t *testing.T) {
 	off := 0
 	tr := newTracker(time.Second, fakeNow(&off))
@@ -144,10 +145,24 @@ func TestTrackerFastRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatalf("openChaos: %v", err)
 	}
-	off += 3 // selesai sebelum probe gagal teramati
-	tr.probe("ws-gateway", true)
-	if inc.TDetect == 0 || inc.TRecover == 0 || inc.TRecover != inc.TDetect {
+	off += 1 // probe in-flight saat kill → healthz masih OK → tidak boleh menutup
+	if closed := tr.probe("ws-gateway", true); closed != nil {
+		t.Fatal("1 OK beruntun tidak boleh menutup incident chaos-kill")
+	}
+	if inc.TDetect != 0 || inc.TRecover != 0 {
+		t.Fatalf("incident tertutup prematur: detect=%d recover=%d", inc.TDetect, inc.TRecover)
+	}
+	off += 2
+	tr.probe("ws-gateway", true) // 2
+	off += 2
+	if closed := tr.probe("ws-gateway", true); closed == nil { // 3 → pulih sub-probe
+		t.Fatal("3 OK beruntun harus menutup incident (pulih di antara dua probe)")
+	}
+	if inc.TDetect == 0 || inc.TRecover != inc.TDetect {
 		t.Fatalf("fast recovery: detect=%d recover=%d", inc.TDetect, inc.TRecover)
+	}
+	if !strings.Contains(inc.Detail, "di antara dua probe") {
+		t.Fatalf("detail tidak mencatat sub-probe: %s", inc.Detail)
 	}
 }
 

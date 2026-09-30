@@ -68,6 +68,11 @@ var allowlistTargets = []chaosTarget{
 // diterbitkan eksplisit).
 const failThreshold = 2
 
+// killOkStreak = berapa healthz OK beruntun setelah chaos-kill tanpa
+// kegagalan teramati sebelum incident dinyatakan pulih — artinya downtime
+// selesai di antara dua probe (lebih pendek dari periode monitor).
+const killOkStreak = 3
+
 func targetByName(name string) (chaosTarget, bool) {
 	for _, t := range allowlistTargets {
 		if t.Name == name {
@@ -126,6 +131,7 @@ type targetState struct {
 	lastProbeOK   bool
 	lastProbeAt   time.Time
 	failStreak    int
+	okStreak      int
 }
 
 func newTracker(period time.Duration, now func() time.Time) *tracker {
@@ -156,9 +162,26 @@ func (tr *tracker) probe(name string, ok bool) *Incident {
 	if ok {
 		st.failStreak = 0
 		if st.open != nil {
-			// pulih. Bila t_detect belum terisi (restart lebih cepat dari
-			// probe — kasus langka), deteksi & pemulihan dianggap bersamaan.
 			if st.open.TDetect <= 0 {
+				if st.open.Kind == "chaos-kill" {
+					// Probe ini bisa saja in-flight SAAT kill dieksekusi (proses
+					// belum mati) — jangan tutup incident kill sebelum kegagalan
+					// teramati. Jika healthz OK beruntun tanpa pernah gagal,
+					// downtime terjadi di antara dua probe: tutup dengan catatan.
+					st.okStreak++
+					st.healthy, st.everHealthy, st.lastHealthyAt = true, true, now
+					if st.okStreak >= killOkStreak {
+						st.open.TDetect = now.UnixMilli()
+						st.open.TRecover = now.UnixMilli()
+						st.open.Detail += " — pulih di antara dua probe (downtime < periode monitor)"
+						closed := st.open
+						st.open = nil
+						return closed
+					}
+					return nil
+				}
+				// incident health terbuka monitor: deteksi & pulih bersamaan
+				// (kasus langka — restart lebih cepat dari probe).
 				st.open.TDetect = now.UnixMilli()
 			}
 			st.open.TRecover = now.UnixMilli()
@@ -174,6 +197,7 @@ func (tr *tracker) probe(name string, ok bool) *Incident {
 	if !st.everHealthy {
 		return nil // belum pernah hidup → standby (pipeline mati), bukan incident
 	}
+	st.okStreak = 0
 	if st.open == nil {
 		// Flap suppression: butuh N kegagalan beruntun sebelum incident
 		// dibuka — satu probe timeout saat load host tinggi bukan outage.
@@ -219,6 +243,7 @@ func (tr *tracker) openChaos(name, detail string) (*Incident, error) {
 	}
 	st.open = inc
 	st.healthy = false
+	st.okStreak = 0
 	st.lastHealthyAt = now
 	tr.push(inc)
 	return inc, nil
