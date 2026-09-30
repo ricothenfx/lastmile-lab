@@ -5,11 +5,12 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** 0 — Bootstrap
-- **Kondisi:** eksekusi fase 0 selesai (lihat log di bawah)
+- **Fase aktif:** 1 — Simulasi inti + Live Ops Map (belum mulai; mulai di chat baru)
+- **Kondisi:** Fase 0 SELESAI & ter-push (repo: ricothenfx/lastmile-lab, root-commit
+  90c6e0d + commit finalisasi docs; CI hijau run 36684638419)
 - **Langkah berikutnya:** mulai Fase 1 di chat baru (kick-off: baca AGENTS.md → PROGRESS →
-  ROADMAP → PHASES/phase-01.md). Fase 1 harus menulis `PHASES/phase-01.md` bila belum ada.
-- **Blokir/tergantung user:** none
+  ROADMAP → PHASES/phase-01.md). Kerjakan scope fase 1 SAJA.
+- **Blokir/tergantung user:** none (auth Vercel baru dibutuhkan saat deploy Fase 1)
 
 ## Log
 

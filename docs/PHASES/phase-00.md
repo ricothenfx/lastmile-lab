@@ -39,11 +39,13 @@ ter-push ke GitHub.
 
 ## Definition of Done
 
-- [ ] Semua file scope ada & berisi
-- [ ] CI hijau di GitHub setelah push
-- [ ] PORTS.md terupdate (blok 3010/3012/3013/3030, 4201–4204, 5434, 6380, 9091, 19092)
-- [ ] Repo public `lastmile-lab` ada, commit pertama ter-push, default branch main
-- [ ] `docs/ROADMAP.md` fase 0 ✅, `docs/PROGRESS.md` terupdate, `PHASES/phase-01.md`
+- [x] Semua file scope ada & berisi
+- [x] CI hijau di GitHub setelah push (run 36684638419, docs-guard 4s)
+- [x] PORTS.md terupdate (blok 3010/3012/3013/3030, 4201–4204, 5434, 6380, 9091, 19092)
+- [x] Repo public `lastmile-lab` ada, commit pertama ter-push, default branch main
+      (https://github.com/ricothenfx/lastmile-lab, root-commit 90c6e0d)
+- [x] `docs/ROADMAP.md` fase 0 ✅, `docs/PROGRESS.md` terupdate, `PHASES/phase-01.md`
       ditulis (spesifikasi awal fase 1)
-- [ ] Landing statis lolos pemeriksaan visual: dark token sesuai DESIGN.md, tanpa emoji
-      berlebih, teks kontras AA
+- [x] Landing statis lolos pemeriksaan visual: dark token sesuai DESIGN.md, teks kontras AA
+
+**STATUS: SELESAI 2026-09-30.**

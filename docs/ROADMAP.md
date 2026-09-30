@@ -8,7 +8,7 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 
 | Fase | Nama | Status |
 |---|---|---|
-| 0 | Bootstrap repo, docs, CI, deploy skeleton | 🔨 |
+| 0 | Bootstrap repo, docs, CI, deploy skeleton | ✅ |
 | 1 | Simulasi inti + Live Ops Map | ⬜ |
 | 2 | Order ingestion + load generator + Surge Console dasar | ⬜ |
 | 3 | Dispatch engine 4 strategi + Strategy Lab | ⬜ |
