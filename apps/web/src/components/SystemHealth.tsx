@@ -362,7 +362,7 @@ function SystemHealthImpl({ kpiState }: Props) {
 
   const fire = useCallback(async (t: string) => {
     const res = await postChaosKill(t);
-    setKillMsg(res.ok ? `SIGKILL ${t.toUpperCase()} TERKIRIM — self-heal dihitung` : `GAGAL: ${res.error ?? '?'}`);
+    setKillMsg(res.ok ? `KILL ${t.toUpperCase()} TERKIRIM — self-heal dihitung` : `GAGAL: ${res.error ?? '?'}`);
     return res;
   }, []);
 

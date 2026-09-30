@@ -45,8 +45,9 @@ agregat dari metrik nyata (rider-sim `/internal/metrics` → p50/p95 delivery,
 p99 dispatch, utilisation, cost/order; counters pipeline → lag/backlog; chaos
 `/incidents` → MTTD/MTTR/error budget) + SLO eksplisit + grid healthz (cache
 2 s). Chaos injector :4206 (internal, profile `chaos`) — `POST /api/chaos/kill
-{"target":"rider-sim"}` = SIGKILL PID 1 di dalam container (exec API — endpoint
-`/kill` Docker TIDAK memicu restart policy) dari **allowlist eksplisit 7 service
+{"target":"rider-sim"}` = SIGTERM ke PID 1 di dalam container (exec API;
+runtime Go keluar → restart policy jalan — endpoint `/kill` Docker TIDAK
+memicu policy dan PID 1 kebal SIGKILL dari dalam namespace) dari **allowlist eksplisit 7 service
 stateless `lastmile-*`** (postgres/redis/redpanda/chaos sendiri DI LUAR
 allowlist; container lain DITOLAK 403). Pemulihan = restart policy
 `unless-stopped` Docker (self-heal yang diukur — chaos tidak restart manual).

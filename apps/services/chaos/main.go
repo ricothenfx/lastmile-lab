@@ -9,12 +9,15 @@
 //   - Allowlist EKSPLISIT tujuh service stateless `lastmile-*` di bawah —
 //     tanpa wildcard. Infra ber-state (postgres/redis/redpanda), chaos itu
 //     sendiri, dan semua container di luar project TIDAK PERNAH disentuh.
-//   - Kill = SIGKILL ke PID 1 DI DALAM container via Docker exec API
-//     (perintah fixed `kill -9 1`). Endpoint `/containers/{id}/kill` Docker
-//     29 sengaja TIDAK dipakai: ia tidak memicu restart policy (terverifikasi
-//     di VPS), sedangkan crash PID 1 dari dalam ya — self-heal via restart
-//     policy `unless-stopped` adalah perilaku yang justru diukur; chaos tidak
-//     pernah me-restart manual.
+//   - Kill = SIGTERM ke PID 1 DI DALAM container via Docker exec API
+//     (perintah fixed `kill -TERM 1`; runtime Go keluar → node mati).
+//     Dua fakta terverifikasi di VPS (Docker 29.8.1): (1) endpoint
+//     `/containers/{id}/kill` TIDAK memicu restart policy — container
+//     dianggap dihentikan manual; (2) PID 1 kebal SIGKILL dari dalam PID
+//     namespace-nya sendiri (kernel membuang sinyal tanpa handler), tapi
+//     SIGTERM mengenai handler runtime Go → proses keluar → restart policy
+//     `unless-stopped` memulihkannya — self-heal sungguhan yang diukur;
+//     chaos tidak pernah me-restart manual.
 //   - Monitor 1 Hz + flap suppression 2 kegagalan beruntun membuka & menutup
 //     incident: MTTD = t_detect − t_start, MTTR = t_recover − t_detect (unix ms).
 package main
@@ -402,16 +405,16 @@ func (d *dockerClient) inspectRunning(container string) (bool, error) {
 	return st.State.Running, nil
 }
 
-// kill mengirim SIGKILL ke PID 1 DI DALAM container via Docker exec API.
+// kill mengirim SIGTERM ke PID 1 DI DALAM container via Docker exec API.
 //
-// PENTING (perilaku Docker 25+ di host ini terverifikasi): endpoint
+// PENTING (terverifikasi di host ini, Docker 29.8.1): (1) endpoint
 // `/containers/{id}/kill` TIDAK memicu restart policy — container dianggap
-// dihentikan manual dan `unless-stopped` membiarkannya mati. Crash PID 1
-// dari dalam container justru memicu restart policy sungguhan (self-heal
-// yang mau diukur) sekaligus lebih otentik sebagai kegagalan proses.
-// Perintah exec FIXED (`kill -9 1`) — bukan pintu exec arbitrer.
+// dihentikan manual; (2) PID 1 kebal SIGKILL dari dalam PID namespace-nya
+// sendiri (kernel membuang sinyal tanpa handler). SIGTERM mengenai handler
+// runtime Go → proses keluar (exit 2) → restart policy `unless-stopped`
+// memulihkannya. Perintah exec FIXED — bukan pintu exec arbitrer.
 func (d *dockerClient) kill(container string) error {
-	b := strings.NewReader(`{"AttachOutput":false,"Cmd":["/bin/sh","-c","kill -9 1"]}`)
+	b := strings.NewReader(`{"AttachOutput":false,"Cmd":["/bin/sh","-c","kill -TERM 1"]}`)
 	req, err := http.NewRequest(http.MethodPost,
 		"http://docker/containers/"+container+"/exec", b)
 	if err != nil {
@@ -567,7 +570,7 @@ func (s *service) mux() *http.ServeMux {
 			})
 			return
 		}
-		inc, err := s.tr.openChaos(t.Name, "SIGKILL oleh chaos injector ("+t.Container+")")
+		inc, err := s.tr.openChaos(t.Name, "SIGTERM→exit oleh chaos injector ("+t.Container+")")
 		if err != nil {
 			code := http.StatusConflict
 			if errors.Is(err, errDenied) {

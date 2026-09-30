@@ -5,7 +5,7 @@
 # mount compose — karena itu berjalan sebagai root (akses socket), SATU-
 # SATUNYA service lastmile yang begitu. Serangan tetap terbatas: kill hanya
 # lolos untuk allowlist eksplisit 7 container stateless lastmile-* (validasi
-# di kode, tanpa wildcard), exec berisi perintah fixed `kill -9 1`, tidak
+# di kode, tanpa wildcard), exec berisi perintah fixed `kill -TERM 1`, tidak
 # ada publish port host.
 # syntax=docker/dockerfile:1
 FROM golang:1.26-alpine AS build
