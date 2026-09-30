@@ -24,3 +24,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
