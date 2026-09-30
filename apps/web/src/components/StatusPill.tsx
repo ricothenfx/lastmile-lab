@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { memo } from 'react';
 import type { OpsMode } from '@/lib/useOpsStream';
 
 const PILL: Record<OpsMode, { label: string; dot: string; pulse: boolean }> = {
@@ -9,7 +10,7 @@ const PILL: Record<OpsMode, { label: string; dot: string; pulse: boolean }> = {
   replay: { label: 'REPLAY', dot: 'bg-status-coral', pulse: false },
 };
 
-export default function StatusPill({ mode }: { mode: OpsMode }) {
+function StatusPillImpl({ mode }: { mode: OpsMode }) {
   const cfg = PILL[mode];
   return (
     <span
@@ -32,3 +33,6 @@ export default function StatusPill({ mode }: { mode: OpsMode }) {
     </span>
   );
 }
+
+const StatusPill = memo(StatusPillImpl);
+export default StatusPill;

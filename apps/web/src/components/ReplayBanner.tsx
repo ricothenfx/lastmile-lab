@@ -1,8 +1,9 @@
 'use client';
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { memo } from 'react';
 
-export default function ReplayBanner({ visible }: { visible: boolean }) {
+function ReplayBannerImpl({ visible }: { visible: boolean }) {
   return (
     <AnimatePresence>
       {visible && (
@@ -28,3 +29,6 @@ export default function ReplayBanner({ visible }: { visible: boolean }) {
     </AnimatePresence>
   );
 }
+
+const ReplayBanner = memo(ReplayBannerImpl);
+export default ReplayBanner;

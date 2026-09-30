@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { Map as MLMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { riderStatusColor, tokens } from '@/lib/tokens';
@@ -105,7 +105,7 @@ function buildStyle(): StyleSpecification {
   };
 }
 
-export default function LiveMap({ streamRef }: { streamRef: React.MutableRefObject<LiveStreamRef> }) {
+function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStreamRef> }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -163,7 +163,6 @@ export default function LiveMap({ streamRef }: { streamRef: React.MutableRefObje
         }),
         'bottom-right',
       );
-      map.keyboard.disable();
       map.touchZoomRotate.disableRotation();
 
       const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
@@ -348,3 +347,6 @@ export default function LiveMap({ streamRef }: { streamRef: React.MutableRefObje
     />
   );
 }
+
+// memo: props stabil (ref) → subtree ini tidak ikut re-render saat stats tick.
+export default memo(LiveMapImpl);

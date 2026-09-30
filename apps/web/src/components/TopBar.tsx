@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { Snapshot } from '@/lib/protocol';
 import type { OpsMode } from '@/lib/useOpsStream';
 import StatusPill from './StatusPill';
@@ -19,7 +20,7 @@ function Ticker({ label, value }: { label: string; value: number | string }) {
   );
 }
 
-export default function TopBar({ mode, stats }: { mode: OpsMode; stats: Snapshot['st'] | null }) {
+function TopBarImpl({ mode, stats }: { mode: OpsMode; stats: Snapshot['st'] | null }) {
   return (
     <header className="z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line-subtle bg-surface-raised px-4">
       <div className="flex min-w-0 items-baseline gap-3">
@@ -47,3 +48,6 @@ export default function TopBar({ mode, stats }: { mode: OpsMode; stats: Snapshot
     </header>
   );
 }
+
+const TopBar = memo(TopBarImpl);
+export default TopBar;

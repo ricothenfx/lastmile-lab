@@ -1,3 +1,6 @@
+'use client';
+
+import { memo } from 'react';
 import { riderStatusColor, tokens } from '@/lib/tokens';
 
 function Dot({ color }: { color: string }) {
@@ -21,7 +24,7 @@ function DashedLine({ color }: { color: string }) {
 }
 
 /** Legenda peta — warna selalu dari token (DESIGN.md §2). */
-export default function Legend() {
+function LegendImpl() {
   const t = tokens.color;
   return (
     <aside
@@ -57,3 +60,6 @@ function LegendRow({ icon, label }: { icon: React.ReactNode; label: string }) {
     </span>
   );
 }
+
+const Legend = memo(LegendImpl);
+export default Legend;
