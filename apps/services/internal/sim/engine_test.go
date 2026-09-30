@@ -155,6 +155,41 @@ func TestSnapshotDeterminismSameSeed(t *testing.T) {
 	}
 }
 
+func TestMetricsTrackDeliveriesAndTaskLoad(t *testing.T) {
+	g := tinyGraph(t)
+	e, err := New(g, cfgFast(), FIFO{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 1800; i++ { // 3 menit virtual
+		e.Tick(100)
+	}
+	m := e.Metrics()
+	if m.Delivered == 0 {
+		t.Fatal("harus ada order terkirim untuk uji metrik")
+	}
+	if len(m.DeliveryDursMs) != m.Delivered {
+		t.Fatalf("durasi delivery %d ≠ delivered %d", len(m.DeliveryDursMs), m.Delivered)
+	}
+	for _, d := range m.DeliveryDursMs {
+		if d <= 0 {
+			t.Fatalf("durasi delivery harus > 0, dapat %d", d)
+		}
+	}
+	if m.TaskDistM <= 0 {
+		t.Fatal("jarak tempuh on-task harus > 0")
+	}
+	if m.BusyMs <= 0 || m.BusyMs > int64(cfgFast().Riders)*e.Snapshot().T {
+		t.Fatalf("busyMs tidak wajar: %d", m.BusyMs)
+	}
+	if m.RiderMs != int64(cfgFast().Riders)*e.Snapshot().T {
+		t.Fatalf("riderMs = riders×elapsed, dapat %d", m.RiderMs)
+	}
+	if m.Created == 0 || m.Expired < 0 {
+		t.Fatalf("created/expired tidak wajar: %d/%d", m.Created, m.Expired)
+	}
+}
+
 func TestStrategyInterfaceDecouplesEngine(t *testing.T) {
 	// strategi "no-op" — bukti Strategy bisa ditukar tanpa refactor engine
 	var s Strategy = noopStrategy{}

@@ -29,7 +29,7 @@ function LegendImpl() {
   return (
     <aside
       aria-label="Legenda peta"
-      className="absolute bottom-4 left-4 z-10 rounded-panel border border-line-subtle bg-surface-raised/85 px-4 py-3 backdrop-blur"
+      className="absolute left-4 top-[68px] z-10 rounded-panel border border-line-subtle bg-surface-raised/85 px-4 py-3 backdrop-blur"
     >
       <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">
         Riders

@@ -13,11 +13,15 @@ import (
 )
 
 // OrderView / RiderView melindungi Strategy dari state internal engine.
+// NowMs (Fase 3) opsional: jam virtual pemanggil saat Assign dipanggil —
+// dipakai strategi berbasis window (Batching); 0 = fallback ke CreatedMs
+// terbaru. Field aditif, kontrak lama tetap compile tanpa perubahan.
 type OrderView struct {
 	ID        string
 	CreatedMs int64
 	PickupLat float64
 	PickupLon float64
+	NowMs     int64
 }
 
 type RiderView struct {

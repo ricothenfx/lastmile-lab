@@ -85,8 +85,8 @@ func (d *pgDB) SetAssigned(ctx context.Context, orderID string) error {
 	return err
 }
 
-func (d *pgDB) EventAssigned(ctx context.Context, orderID string, riderID int, distM float64) error {
-	payload, _ := json.Marshal(map[string]interface{}{"rider": riderID, "dist_m": distM, "strategy": "fifo"})
+func (d *pgDB) EventAssigned(ctx context.Context, orderID string, riderID int, distM float64, strategy string) error {
+	payload, _ := json.Marshal(map[string]interface{}{"rider": riderID, "dist_m": distM, "strategy": strategy})
 	_, err := d.pool.Exec(ctx, `INSERT INTO order_events (order_id, event_type, payload)
 		VALUES ($1,'assigned',$2) ON CONFLICT (order_id, event_type) DO NOTHING`,
 		orderID, payload)
@@ -119,10 +119,17 @@ func main() {
 		log.Fatalf("pgxpool: %v", err)
 	}
 
+	// Strategi dispatch pipeline (Fase 3) — default fifo, perilaku lama utuh.
+	stratName := envStr("DISPATCH_STRATEGY", "fifo")
+	strategy, err := dispatch.ByName(stratName)
+	if err != nil {
+		log.Fatalf("DISPATCH_STRATEGY: %v", err)
+	}
+
 	runner := NewRunner(cl,
 		&httpSim{url: simURL, hc: &http.Client{Timeout: 3 * time.Second}},
 		&pgDB{pool: pool},
-		batchMax)
+		batchMax, strategy)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -142,6 +149,7 @@ func main() {
 			"ok": ctx.Err() == nil, "service": "dispatch-consumer",
 			"uptime_sec":         int64(time.Since(start).Seconds()),
 			"last_commit_age_ms": ageMs, "group": group, "topic": topic,
+			"strategy": stratName,
 		})
 	})
 	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {

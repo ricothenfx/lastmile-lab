@@ -67,7 +67,7 @@ type DB interface {
 	UpsertOrder(ctx context.Context, msg model.OrderMsg) error
 	EventIngested(ctx context.Context, orderID, key string) error
 	SetAssigned(ctx context.Context, orderID string) error
-	EventAssigned(ctx context.Context, orderID string, riderID int, distM float64) error
+	EventAssigned(ctx context.Context, orderID string, riderID int, distM float64, strategy string) error
 }
 
 // ---- perencanaan batch (murni — mudah dites) ----
@@ -152,8 +152,11 @@ type Runner struct {
 	cnt      counters
 }
 
-func NewRunner(cl *kgo.Client, sim SimClient, db DB, batchMax int) *Runner {
-	return &Runner{cl: cl, sim: sim, db: db, strat: dispatch.FIFO{},
+func NewRunner(cl *kgo.Client, sim SimClient, db DB, batchMax int, strat dispatch.Strategy) *Runner {
+	if strat == nil {
+		strat = dispatch.FIFO{}
+	}
+	return &Runner{cl: cl, sim: sim, db: db, strat: strat,
 		seen: newSeenSet(100_000), batchMax: batchMax}
 }
 
@@ -266,7 +269,7 @@ func (r *Runner) process(ctx context.Context, fs kgo.Fetches) error {
 			r.cnt.mu.Unlock()
 			return err
 		}
-		if err := r.db.EventAssigned(ctx, a.orderID, a.riderID, a.distM); err != nil {
+		if err := r.db.EventAssigned(ctx, a.orderID, a.riderID, a.distM, r.strat.Name()); err != nil {
 			r.cnt.mu.Lock()
 			r.cnt.dbErrors++
 			r.cnt.mu.Unlock()

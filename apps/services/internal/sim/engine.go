@@ -91,6 +91,13 @@ type Engine struct {
 	expired   int
 	startWall time.Time
 
+	// Metrik Strategy Lab (Fase 3): durasi created→delivered per order,
+	// jarak tempuh on-task (to_pickup+delivering), dan rider-ms on-task.
+	// Tidak mengubah kontrak model.Snapshot — hanya dibaca via Metrics().
+	deliveredDurs []int64
+	taskDistM     float64
+	busyMs        int64
+
 	// Kontrol live (Surge Console, Fase 2) — clamp di SetControls.
 	surgeFactor   float64
 	weatherFactor float64
@@ -151,6 +158,11 @@ func (e *Engine) Tick(dtMs int64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	e.nowMs += dtMs
+	for _, r := range e.riders {
+		if r.status != model.RiderIdle {
+			e.busyMs += dtMs
+		}
+	}
 	e.spawnOrders()
 	e.moveRiders(float64(dtMs) / 1000)
 	e.expireOrders()
@@ -229,6 +241,9 @@ func (e *Engine) advanceRider(r *rider, dtS float64) {
 	}
 	if r.status == model.RiderDelivering && r.dwellUntilMs > 0 {
 		if e.nowMs >= r.dwellUntilMs { // selesai antar
+			if o := e.activeOrder(r.orderID); o != nil {
+				e.deliveredDurs = append(e.deliveredDurs, e.nowMs-o.createdMs)
+			}
 			e.delivered++
 			e.removeOrder(r.orderID)
 			r.status, r.orderID, r.dwellUntilMs = model.RiderIdle, "", 0
@@ -241,6 +256,13 @@ func (e *Engine) advanceRider(r *rider, dtS float64) {
 		speed = e.cfg.SpeedMPS
 	}
 	remaining := speed * e.weatherFactor * dtS
+	onTask := r.status == model.RiderToPickup || r.status == model.RiderDelivering
+	var movedM float64
+	defer func() {
+		if onTask {
+			e.taskDistM += movedM // jarak tempuh on-task nyata di graph
+		}
+	}()
 
 	for remaining > 0 {
 		edgeLen := e.g.EdgeLenM(r.from, r.to)
@@ -269,10 +291,12 @@ func (e *Engine) advanceRider(r *rider, dtS float64) {
 		left := edgeLen - r.progressM
 		if remaining < left {
 			r.progressM += remaining
+			movedM += remaining
 			remaining = 0
 			break
 		}
 		remaining -= left
+		movedM += left
 		// tiba di r.to
 		if len(r.route) > 0 {
 			r.from, r.to, r.progressM = r.to, r.route[0], 0
@@ -326,6 +350,7 @@ func (e *Engine) dispatch() {
 			CreatedMs: o.createdMs,
 			PickupLat: e.g.NodeLat(o.pickup),
 			PickupLon: e.g.NodeLon(o.pickup),
+			NowMs:     e.nowMs,
 		})
 	}
 	if len(ov) == 0 {
@@ -365,6 +390,35 @@ func (e *Engine) dispatch() {
 			OrderID: o.id, RiderID: r.id, DistM: math.Round(a.DistM),
 			Reason: a.Reason,
 		})
+	}
+}
+
+// Metrics mengekspos metrik level engine untuk Strategy Lab (Fase 3):
+// durasi created→delivered (ms), jarak tempuh on-task, rider-ms on-task.
+// Copy aman — pemanggil bebas memutasi hasilnya.
+type Metrics struct {
+	Delivered      int
+	Expired        int
+	Created        int
+	DeliveryDursMs []int64
+	TaskDistM      float64
+	BusyMs         int64
+	RiderMs        int64
+}
+
+func (e *Engine) Metrics() Metrics {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	durs := make([]int64, len(e.deliveredDurs))
+	copy(durs, e.deliveredDurs)
+	return Metrics{
+		Delivered:      e.delivered,
+		Expired:        e.expired,
+		Created:        e.createdTotal,
+		DeliveryDursMs: durs,
+		TaskDistM:      e.taskDistM,
+		BusyMs:         e.busyMs,
+		RiderMs:        int64(len(e.riders)) * e.nowMs,
 	}
 }
 

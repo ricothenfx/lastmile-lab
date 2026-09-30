@@ -7,6 +7,7 @@
 //	POST /api/control/weather → sim-control
 //	GET  /api/control/state   nilai surge/weather aktif
 //	GET  /api/metrics         agregasi counters pipeline (JSON, Fase 2)
+//	*    /api/lab/*           → strategy-lab (Strategy Lab, Fase 3)
 package main
 
 import (
@@ -16,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -27,6 +29,7 @@ func main() {
 	ingestionURL := envStr("ORDER_INGESTION_URL", "http://127.0.0.1:4202")
 	consumerURL := envStr("DISPATCH_CONSUMER_URL", "http://127.0.0.1:4203")
 	loadgenURL := envStr("LOADGEN_URL", "") // hanya saat loadtest — kosong = skip
+	labURL := envStr("LAB_URL", "")         // kosong = /api/lab/* → 503 (lab opsional)
 	client := &http.Client{Timeout: 4 * time.Second}
 
 	var simMu sync.Mutex
@@ -114,6 +117,32 @@ func main() {
 		})
 	}
 
+	// proxy lab: meneruskan method+body apa adanya ke strategy-lab
+	// (POST /api/lab/run → /run; GET /api/lab/results[/id] → /results[...]).
+	proxyLab := func(w http.ResponseWriter, r *http.Request) {
+		if labURL == "" {
+			http.Error(w, `{"error":"lab_disabled"}`, http.StatusServiceUnavailable)
+			return
+		}
+		target := labURL + strings.TrimPrefix(r.URL.Path, "/api/lab")
+		req, err := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
+		if err != nil {
+			http.Error(w, `{"error":"bad request"}`, http.StatusBadRequest)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		// duel bisa jalan menit-menit dinding — klien polling, bukan menunggu.
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, `{"error":"strategy-lab unreachable"}`, http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(resp.StatusCode)
+		io.Copy(w, resp.Body)
+	}
+
 	mux := http.NewServeMux()
 	start := time.Now()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -122,6 +151,7 @@ func main() {
 			"service":    "api-gateway",
 			"uptime_sec": int64(time.Since(start).Seconds()),
 			"sim_ok":     probe(),
+			"lab_ok":     labURL != "",
 		})
 	})
 	mux.HandleFunc("/api/snapshot", proxy("/api/snapshot"))
@@ -130,6 +160,8 @@ func main() {
 	mux.HandleFunc("/api/control/surge", proxyControl("/control/surge"))
 	mux.HandleFunc("/api/control/weather", proxyControl("/control/weather"))
 	mux.HandleFunc("/api/control/state", proxyControl("/state"))
+	mux.HandleFunc("/api/lab/", proxyLab)
+	mux.HandleFunc("/api/lab", proxyLab)
 
 	handler := cors(mux)
 	addr := "0.0.0.0:" + port

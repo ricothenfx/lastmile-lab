@@ -28,6 +28,7 @@ import (
 
 	"github.com/ricothenfx/lastmile-lab/apps/services/internal/graph"
 	"github.com/ricothenfx/lastmile-lab/apps/services/internal/sim"
+	"github.com/ricothenfx/lastmile-lab/apps/services/pkg/dispatch"
 	"github.com/ricothenfx/lastmile-lab/apps/services/pkg/model"
 )
 
@@ -59,7 +60,13 @@ func main() {
 	}
 	log.Printf("graph: %d nodes, %d POIs, bbox %v", g.NodeCount(), len(g.POIs()), g.Meta.BBox)
 
-	engine, err := sim.New(g, cfg, sim.FIFO{})
+	// Strategi dispatch selectable (Fase 3) — default fifo, demo lama utuh.
+	stratName := envStr("DISPATCH_STRATEGY", "fifo")
+	strategy, err := dispatch.ByName(stratName)
+	if err != nil {
+		log.Fatalf("DISPATCH_STRATEGY: %v", err)
+	}
+	engine, err := sim.New(g, cfg, strategy)
 	if err != nil {
 		log.Fatalf("init sim: %v", err)
 	}
@@ -136,8 +143,8 @@ func main() {
 	})
 
 	addr := "0.0.0.0:" + port
-	log.Printf("rider-sim listening on %s (source=%s, tick %v, riders %d, rate %.1f/min, seed %d)",
-		addr, source, tickInterval, cfg.Riders, cfg.OrderRatePerMin, cfg.Seed)
+	log.Printf("rider-sim listening on %s (source=%s, strategy=%s, tick %v, riders %d, rate %.1f/min, seed %d)",
+		addr, source, stratName, tickInterval, cfg.Riders, cfg.OrderRatePerMin, cfg.Seed)
 	srv := &http.Server{
 		Addr:              addr,
 		Handler:           mux,

@@ -135,6 +135,7 @@ services:
     environment:
       PORT: "4201"
       ORDER_SOURCE: "internal"
+      DISPATCH_STRATEGY: "fifo"
       RIDERS: "60"
       ORDER_RATE_PER_MIN: "20"
       SPEED_MPS: "5.5"
@@ -191,16 +192,40 @@ services:
       ORDER_INGESTION_URL: http://order-ingestion:4202
       DISPATCH_CONSUMER_URL: http://dispatch-consumer:4203
       LOADGEN_URL: http://loadgen:4204
+      LAB_URL: http://strategy-lab:4205
     ports:
       - "${LASTMILE_BIND_IP:-127.0.0.1}:3010:3010"
     depends_on:
       rider-sim:
+        condition: service_healthy
+      strategy-lab:
         condition: service_healthy
     networks: [internal]
     mem_limit: 64m
     cpus: 0.25
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3010/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    logging: *log
+
+  # ---- Fase 3: Strategy Lab (duel A/B strategi dispatch) ----
+  # Jaringan internal saja — frontend masuk via proxy api-gateway /api/lab/*.
+  # Duel berjalan virtual-time; satu duel bersamaan (ramah VPS 4 core).
+  strategy-lab:
+    image: ghcr.io/ricothenfx/lastmile-strategy-lab:${LASTMILE_IMAGE_TAG:-latest}
+    container_name: lastmile-strategy-lab
+    profiles: [sim]
+    restart: unless-stopped
+    environment:
+      PORT: "4205"
+      MAX_RESULTS: "8"
+    networks: [internal]
+    mem_limit: 256m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4205/healthz"]
       interval: 15s
       timeout: 3s
       retries: 5

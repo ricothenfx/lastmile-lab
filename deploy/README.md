@@ -15,14 +15,15 @@ Internet
                                      ▼
                         Caddy (container turnaround-prod, 80/443)
                                      │ reverse_proxy ke 127.0.0.1
-        ┌────────────────────────────┴───────────────────────────┐
-        │  Docker compose project: lastmile  (network internal)  │
-        │  3010 api-gateway · 3012 ws-gateway · 3013 sim-control │
-        │  3030 grafana (opsional) · 5434 postgres · 6380 redis  │
-        │  4201 rider-sim · 4202 order-ingestion · 4203 dispatch │
-        │  4204 loadgen (profile loadtest saja)                  │
-        │  redpanda 19092 (internal network saja)                │
-        └────────────────────────────────────────────────────────┘
+         ┌────────────────────────────┴───────────────────────────┐
+         │  Docker compose project: lastmile  (network internal)  │
+         │  3010 api-gateway · 3012 ws-gateway · 3013 sim-control │
+         │  3030 grafana (opsional) · 5434 postgres · 6380 redis  │
+         │  4201 rider-sim · 4202 order-ingestion · 4203 dispatch │
+         │  4204 loadgen (profile loadtest saja)                  │
+         │  4205 strategy-lab (Fase 3, internal network saja)     │
+         │  redpanda 19092 (internal network saja)                │
+         └────────────────────────────────────────────────────────┘
 ```
 
 Pipeline order (Fase 2): `loadgen/klien → POST /orders (order-ingestion :4202,
@@ -31,6 +32,12 @@ partisi) → dispatch-consumer :4203 (FIFO via pkg/dispatch, commit offset manua
 dedupe by order id) → injeksi ke rider-sim :4201 (validasi ulang + FIFO fallback)
 → Postgres `orders`/`order_events`. Kontrol live: api-gateway `/api/control/*` →
 sim-control :3013 → rider-sim (+loadgen saat hidup).
+
+Strategy Lab (Fase 3): UI → api-gateway `/api/lab/*` → strategy-lab :4205
+(internal saja) → duel dua engine identik (satu generator order seed sama → dua
+engine, strategi beda) — hasil metrik + histogram + frame replay kembar. Strategi
+dispatch selectable per service via env `DISPATCH_STRATEGY`
+(`fifo|batching|zone|optimal`, default `fifo`).
 
 ## 2. Blok Port (terdaftar di /home/rico/PORTS.md)
 
@@ -44,6 +51,7 @@ sim-control :3013 → rider-sim (+loadgen saat hidup).
 | 4202 | order-ingestion | tidak dipublish | POST /orders internal |
 | 4203 | dispatch-consumer | tidak dipublish | healthz/metrics internal |
 | 4204 | loadgen | tidak dipublish | hanya profile loadtest |
+| 4205 | strategy-lab | tidak dipublish | Fase 3 — duels via api-gateway /api/lab/* |
 | 5434 | lastmile-postgres | 127.0.0.1 | instance sendiri, BUKAN 5433 aviation |
 | 6380 | lastmile-redis | 127.0.0.1 | instance sendiri, BUKAN 6379 aviation |
 | 9091 | lastmile-prometheus (reserved) | 127.0.0.1 | Fase 4+ |
@@ -88,6 +96,16 @@ docker compose -p lastmile -f deploy/compose.yaml -f deploy/compose.pipeline.yam
 # LOAD TEST (sementara — matikan lagi setelah selesai):
 ... --profile loadtest up -d loadgen     # hasil: docker logs lastmile-loadgen
 ```
+
+### 4.2 Strategy Lab & benchmark (Fase 3)
+
+- Duel A/B: UI (panel Strategy Lab) atau `curl -s localhost:3010/api/lab/run
+  -d '{"strategy_a":"fifo","strategy_b":"optimal","preset":"rush","seconds":600}'`;
+  hasil: `localhost:3010/api/lab/results[/id]`. Satu duel bersamaan (409 bila sibuk).
+- Benchmark p99 dispatch: manual, BUKAN gate CI — lihat `reports/phase-03-bench.md`
+  (perintah repro + kondisi hardware di §6 laporan).
+- Ganti strategi live demo: env `DISPATCH_STRATEGY` pada `rider-sim`/`dispatch-consumer`
+  (override compose atau `docker compose -p lastmile --profile sim up -d` setelah edit).
 
 - Override `deploy/compose.pipeline.yaml` hanya mengubah `rider-sim` →
   `ORDER_SOURCE=pipeline`. Tanpa override itu, demo tetap internal.
