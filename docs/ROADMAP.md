@@ -22,15 +22,15 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 ## Fase 0 — Bootstrap (spec: `PHASES/phase-00.md`)
 
 **DoD:**
-- [ ] Struktur monorepo sesuai BLUEPRINT §5 ada di repo
-- [ ] Semua docs sumber kebenaran terisi: AGENTS.md, BLUEPRINT, ROADMAP, DESIGN,
+- [x] Struktur monorepo sesuai BLUEPRINT §5 ada di repo
+- [x] Semua docs sumber kebenaran terisi: AGENTS.md, BLUEPRINT, ROADMAP, DESIGN,
       PROGRESS, PHASES/phase-00
-- [ ] `deploy/` skeleton: compose.yaml (infra + limit sumber daya), site block Caddy,
+- [x] `deploy/` skeleton: compose.yaml (infra + limit sumber daya), site block Caddy,
       runbook README
-- [ ] `apps/web/` landing statis bertema design tokens (deployable ke Vercel apa adanya)
-- [ ] CI workflow hijau di GitHub (docs guard + YAML valid)
-- [ ] Blok port lastmile tercatat di `/home/rico/PORTS.md`
-- [ ] Repo GitHub `lastmile-lab` dibuat, commit pertama ter-push
+- [x] `apps/web/` landing statis bertema design tokens (deployable ke Vercel apa adanya)
+- [x] CI workflow hijau di GitHub (docs guard + YAML valid)
+- [x] Blok port lastmile tercatat di `/home/rico/PORTS.md`
+- [x] Repo GitHub `lastmile-lab` dibuat, commit pertama ter-push
 
 ## Fase 1 — Simulasi inti + Live Ops Map
 
