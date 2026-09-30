@@ -1,0 +1,25 @@
+# Site block Caddy untuk lastmile-lab — DRAFT (belum dipasang).
+#
+# Pemasangan (Fase 6, atau saat backend pertama hidup):
+#   1. File Caddyfile produksi dimiliki stack `turnaround-prod` (ports 80/443).
+#   2. JANGAN restart container Caddy. Salin blok di bawah ke Caddyfile,
+#      lalu jalankan: docker exec turnaround-prod-caddy-1 caddy reload --config /etc/caddy/Caddyfile
+#      (sesuaikan nama service path config — verifikasi dulu dengan `docker inspect`).
+#   3. Verifikasi: curl -I https://api.lastmile-lab.ricothen.com/healthz
+#
+# Prasyarat DNS (dikelola pemilik domain ricothen.com):
+#   api.lastmile-lab.ricothen.com  -> A record -> IP VPS
+#   ws.lastmile-lab.ricothen.com   -> A record -> IP VPS
+#   lastmile-lab.ricothen.com      -> CNAME cname.vercel-dns.com (frontend)
+
+api.lastmile-lab.ricothen.com {
+	encode zstd gzip
+	# Fase 2+: api-gateway di host port 3010 (127.0.0.1)
+	reverse_proxy 127.0.0.1:3010
+}
+
+ws.lastmile-lab.ricothen.com {
+	encode zstd gzip
+	# Fase 1+: ws-gateway di host port 3012 (127.0.0.1)
+	reverse_proxy 127.0.0.1:3012
+}

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>lastmile-lab — mission control for last-mile delivery</title>
+<meta name="description" content="Simulation and benchmark platform for last-mile delivery operations: dispatch strategies, order surge resilience, live control-room dashboard." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-base: #0B1120;
+    --bg-raised: #111827;
+    --bg-overlay: #1F2937;
+    --border-subtle: #1E293B;
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --accent-cyan: #22D3EE;
+    --accent-lime: #A3E635;
+    --status-amber: #FBBF24;
+    --status-coral: #FB7185;
+    --status-violet: #8B5CF6;
+    --font-ui: "Inter", system-ui, -apple-system, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { color-scheme: dark; }
+  body {
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-ui);
+    font-size: 16px;
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .glow {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(600px 300px at 15% -10%, rgba(34, 211, 238, 0.08), transparent 70%),
+      radial-gradient(700px 350px at 90% 0%, rgba(139, 92, 246, 0.07), transparent 70%);
+  }
+  main { position: relative; z-index: 1; flex: 1; width: 100%; max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+  header {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 1040px; margin: 0 auto; padding: 28px 24px;
+  }
+  .wordmark { font-family: var(--font-mono); font-weight: 700; font-size: 18px; letter-spacing: 0.04em; }
+  .wordmark .dot { color: var(--accent-cyan); }
+  .badge {
+    font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-lime); border: 1px solid var(--border-subtle); background: var(--bg-raised);
+    border-radius: 999px; padding: 6px 14px; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .badge .pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent-lime);
+    box-shadow: 0 0 0 0 rgba(163, 230, 53, 0.6);
+    animation: pulse 2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(163, 230, 53, 0.55); }
+    70% { box-shadow: 0 0 0 9px rgba(163, 230, 53, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(163, 230, 53, 0); }
+  }
+  .hero { padding: 72px 0 40px; max-width: 720px; }
+  .hero h1 { font-size: 44px; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+  .hero h1 span { color: var(--accent-cyan); }
+  .hero p { margin-top: 20px; font-size: 18px; color: var(--text-secondary); max-width: 620px; }
+  .meta {
+    margin-top: 28px; display: flex; flex-wrap: wrap; gap: 10px;
+    font-family: var(--font-mono); font-size: 13px;
+  }
+  .chip {
+    border: 1px solid var(--border-subtle); background: var(--bg-raised);
+    border-radius: 8px; padding: 6px 12px; color: var(--text-secondary);
+  }
+  .chip b { color: var(--text-primary); font-weight: 600; }
+  .grid {
+    margin: 48px 0 64px; display: grid; gap: 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .card {
+    border: 1px solid var(--border-subtle); background: var(--bg-raised);
+    border-radius: 12px; padding: 20px; position: relative; overflow: hidden;
+    transition: border-color 120ms ease-out, transform 120ms ease-out;
+  }
+  .card::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent-cyan), transparent 65%);
+    opacity: 0.55;
+  }
+  .card:hover { border-color: rgba(34, 211, 238, 0.4); transform: translateY(-2px); }
+  .card .idx { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); letter-spacing: 0.08em; }
+  .card h3 { margin-top: 8px; font-size: 16px; font-weight: 600; }
+  .card p { margin-top: 6px; font-size: 13.5px; color: var(--text-secondary); }
+  footer {
+    position: relative; z-index: 1; border-top: 1px solid var(--border-subtle);
+  }
+  footer .inner {
+    max-width: 1040px; margin: 0 auto; padding: 22px 24px;
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    color: var(--text-muted); font-size: 13px;
+  }
+  footer .mono { font-family: var(--font-mono); }
+  @media (max-width: 860px) {
+    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hero h1 { font-size: 34px; }
+  }
+  @media (max-width: 560px) {
+    .grid { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 30px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .badge .pulse { animation: none; }
+    .card { transition: none; }
+    .card:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<header>
+  <div class="wordmark">LASTMILE<span class="dot">·</span>LAB</div>
+  <span class="badge"><span class="pulse"></span> Phase 0 — booting</span>
+</header>
+
+<main>
+  <section class="hero">
+    <h1>Mission control for <span>last-mile delivery</span>.</h1>
+    <p>
+      An open simulation &amp; benchmark platform: dispatch strategies racing on a real city
+      map, an order pipeline that survives a 10× surge, and a live control room where every
+      claim is a number you can reproduce.
+    </p>
+    <div class="meta">
+      <span class="chip">stack <b>Go · Kafka-API · Redis · Postgres · K8s-ready</b></span>
+      <span class="chip">map <b>OpenStreetMap</b></span>
+      <span class="chip">target <b>p99 dispatch &lt; 50 ms</b></span>
+    </div>
+  </section>
+
+  <section class="grid" aria-label="Planned control-room modules">
+    <div class="card"><div class="idx">01 / LIVE</div><h3>Live Ops Map</h3><p>Riders moving on a dark city circuit, orders pulsing in, assignments drawn in real time.</p></div>
+    <div class="card"><div class="idx">02 / CONTROL</div><h3>Surge &amp; Chaos Console</h3><p>Dial a flash sale to ×10, summon rain, kill a node — and watch the system heal.</p></div>
+    <div class="card"><div class="idx">03 / KPI</div><h3>KPI Command Deck</h3><p>Delivery time, rider utilization, cost per order — ticking live, straight from the metrics.</p></div>
+    <div class="card"><div class="idx">04 / LAB</div><h3>Strategy Lab</h3><p>FIFO vs batching vs zone vs optimal assignment — same scenario, side-by-side deltas.</p></div>
+    <div class="card"><div class="idx">05 / SYSTEM</div><h3>System Health</h3><p>The order pipeline as living particles: queues, autoscaling, p99, RPS — in real time.</p></div>
+    <div class="card"><div class="idx">06 / REPLAY</div><h3>Replay &amp; Inspect</h3><p>Scrub any moment like video. Click a rider, see why dispatch chose them.</p></div>
+  </section>
+</main>
+
+<footer>
+  <div class="inner">
+    <span>© 2026 lastmile-lab — an open engineering project. Not affiliated with any delivery company.</span>
+    <span class="mono">build: phase-0 · docs: /docs</span>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,50 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  docs-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Required docs & skeleton exist
+        run: |
+          set -e
+          for f in \
+            AGENTS.md \
+            README.md \
+            docs/BLUEPRINT.md \
+            docs/ROADMAP.md \
+            docs/DESIGN.md \
+            docs/PROGRESS.md \
+            docs/PHASES/phase-00.md \
+            deploy/README.md \
+            deploy/compose.yaml \
+            deploy/caddy/lastmile-lab.caddy \
+            apps/web/index.html \
+            .github/workflows/ci.yaml; do
+            test -f "$f" || { echo "MISSING: $f"; exit 1; }
+            echo "ok  $f"
+          done
+
+      - name: Validate YAML files
+        run: |
+          set -e
+          python3 - <<'PY'
+          import yaml
+          for p in ["deploy/compose.yaml", ".github/workflows/ci.yaml"]:
+              with open(p) as fh:
+                  yaml.safe_load(fh)
+              print("valid yaml:", p)
+          PY
+
+      - name: No secrets committed (basic guard)
+        run: |
+          set -e
+          ! grep -rInE "(ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|BEGIN (RSA|OPENSSH) PRIVATE KEY)" \
+            --include="*.md" --include="*.yaml" --include="*.yml" --include="*.ts" --include="*.go" .
+          echo "secret scan OK"

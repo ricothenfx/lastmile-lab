@@ -1,0 +1,26 @@
+# Sekret lokal — JANGAN PERNAH di-commit. Salin dari .env.example dan isi nilai asli.
+deploy/.env
+.env
+*.env.local
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+coverage/
+
+# Go
+apps/services/*/bin/
+*.test
+*.out
+
+# Data & artefak lokal
+data/
+reports/*.json.tmp
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
