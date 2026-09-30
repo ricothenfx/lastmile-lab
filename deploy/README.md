@@ -46,6 +46,9 @@ Internet
 4. **Build di GitHub Actions → GHCR → VPS pull.** Jangan build berat di VPS
    (load sudah 2x oversubscribed; produksi lain ikut terseret).
 5. Bind host port ke `127.0.0.1`; hanya yang di-proxy Caddy yang diakses publik.
+   Pengecualian mekanis: Caddy hidup di bridge network stack lain, jadi service yang
+   di-proxy di-publish ke **IP gateway jaringan Caddy** (`LASTMILE_BIND_IP` di
+   `deploy/.env`, saat ini 172.19.0.1) — tetap tidak publik ke internet.
 6. Tidak menyentuh container/stack lain (turnaround-prod, aviation, ro-botriv).
 7. Update `/home/rico/PORTS.md` SEBELUM memakai port baru.
 

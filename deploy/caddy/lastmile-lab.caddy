@@ -1,11 +1,19 @@
-# Site block Caddy untuk lastmile-lab — DRAFT (belum dipasang).
+# Site block Caddy untuk lastmile-lab.
 #
-# Pemasangan (Fase 6, atau saat backend pertama hidup):
-#   1. File Caddyfile produksi dimiliki stack `turnaround-prod` (ports 80/443).
+# Pemasangan (dilakukan di Fase 1 — lihat PROGRESS.md):
+#   1. File Caddyfile produksi dimiliki stack `turnaround-prod`
+#      (host path: /home/rico/aviation/infra/deploy/Caddyfile).
 #   2. JANGAN restart container Caddy. Salin blok di bawah ke Caddyfile,
 #      lalu jalankan: docker exec turnaround-prod-caddy-1 caddy reload --config /etc/caddy/Caddyfile
-#      (sesuaikan nama service path config — verifikasi dulu dengan `docker inspect`).
 #   3. Verifikasi: curl -I https://api.lastmile-lab.ricothen.com/healthz
+#
+# PENTING — alamat reverse_proxy:
+#   Caddy berjalan di jaringan bridge `turnaround-prod_default`, sehingga 127.0.0.1
+#   dari sudut pandangnya BUKAN host. Port lastmile di-publish ke IP gateway bridge
+#   jaringan Caddy (di VPS ini: 172.19.0.1 — verifikasi dengan
+#   `docker network inspect turnaround-prod_default`), bukan ke 0.0.0.0.
+#   compose memakai env LASTMILE_BIND_IP untuk ini (deploy/.env).
+#   Pola yang sama sudah dipakai site ro.botriv.com (172.19.0.1:3001).
 #
 # Prasyarat DNS (dikelola pemilik domain ricothen.com):
 #   api.lastmile-lab.ricothen.com  -> A record -> IP VPS
@@ -14,12 +22,12 @@
 
 api.lastmile-lab.ricothen.com {
 	encode zstd gzip
-	# Fase 2+: api-gateway di host port 3010 (127.0.0.1)
-	reverse_proxy 127.0.0.1:3010
+	# api-gateway, host port 3010
+	reverse_proxy 172.19.0.1:3010
 }
 
 ws.lastmile-lab.ricothen.com {
 	encode zstd gzip
-	# Fase 1+: ws-gateway di host port 3012 (127.0.0.1)
-	reverse_proxy 127.0.0.1:3012
+	# ws-gateway (WebSocket), host port 3012
+	reverse_proxy 172.19.0.1:3012
 }

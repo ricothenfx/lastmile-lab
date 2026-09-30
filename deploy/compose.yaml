@@ -137,7 +137,9 @@ services:
       RIDER_SIM_URL: http://rider-sim:4201
       POLL_MS: "100"
     ports:
-      - "127.0.0.1:3012:3012"
+      # default loopback; di VPS di-set ke gateway jaringan Caddy (LASTMILE_BIND_IP)
+      # supaya Caddy (container stack lain) bisa menjangkau — lihat deploy/README §3
+      - "${LASTMILE_BIND_IP:-127.0.0.1}:3012:3012"
     depends_on:
       rider-sim:
         condition: service_healthy
@@ -160,7 +162,7 @@ services:
       PORT: "3010"
       RIDER_SIM_URL: http://rider-sim:4201
     ports:
-      - "127.0.0.1:3010:3010"
+      - "${LASTMILE_BIND_IP:-127.0.0.1}:3010:3010"
     depends_on:
       rider-sim:
         condition: service_healthy
