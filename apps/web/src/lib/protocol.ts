@@ -29,6 +29,10 @@ export interface Stats {
   id: number;
   stg?: string;
   up?: number;
+  /** Fase 2 — field optional (kontrak tidak breaking; fixture lama aman). */
+  cr?: number; // kumulatif order dibuat
+  su?: number; // surge factor aktif (1 = normal, ≤10)
+  we?: number; // weather factor aktif (1 = cerah, <1 hujan)
 }
 
 export interface Snapshot {

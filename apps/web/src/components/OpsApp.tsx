@@ -5,6 +5,7 @@ import { useRef } from 'react';
 import Legend from './Legend';
 import LiveMap, { type LiveStreamRef } from './LiveMap';
 import ReplayBanner from './ReplayBanner';
+import SurgeConsole from './SurgeConsole';
 import TopBar from './TopBar';
 import { useOpsStream } from '@/lib/useOpsStream';
 
@@ -40,9 +41,10 @@ export default function OpsApp() {
             </div>
           )}
           <Legend />
+          <SurgeConsole mode={stream.mode} stats={stream.stats} />
           <footer className="pointer-events-none absolute bottom-4 right-16 z-10 hidden md:block">
             <p className="text-[11px] text-ink-secondary">
-              lastmile-lab · phase 1 · data © OpenStreetMap contributors
+              lastmile-lab · phase 2 · data © OpenStreetMap contributors
             </p>
           </footer>
         </main>

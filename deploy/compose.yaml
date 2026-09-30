@@ -1,8 +1,11 @@
-# lastmile-lab — infra + sim stack
+# lastmile-lab — infra + sim + pipeline stack
 #
 # Selalu jalankan dengan project name eksplisit:
-#   docker compose -p lastmile --profile infra up -d     # postgres/redis/redpanda
-#   docker compose -p lastmile --profile sim up -d       # rider-sim + ws + api (Fase 1)
+#   docker compose -p lastmile --profile sim up -d                          # demo (Fase 1, tanpa infra — demo tak pernah mati)
+#   docker compose -p lastmile --profile infra --profile sim up -d          # infra + demo
+#   docker compose -p lastmile --profile infra --profile sim --profile pipeline -f deploy/compose.yaml -f deploy/compose.pipeline.yaml up -d
+#                                                                           # pipeline penuh (Fase 2) + rider-sim ORDER_SOURCE=pipeline
+#   ... + --profile loadtest                                                # tambah load-generator (hanya saat pengujian)
 #
 # Image backend dibangun GitHub Actions → GHCR (deploy/README.md §4);
 # VPS hanya pull. Semua limit sumber daya WAJIB — total budget stack ≤ 2 GB.
@@ -67,7 +70,7 @@ services:
     logging: *log
 
   # Message bus — API kompatibel Kafka, hemat RAM (bukan JVM).
-  # Listener internal saja (tidak dipublish ke host); dipakai mulai Fase 2.
+  # Listener internal saja (tidak dipublish ke host).
   redpanda:
     image: redpandadata/redpanda:v24.2.7
     container_name: lastmile-redpanda
@@ -89,20 +92,41 @@ services:
       - PLAINTEXT://0.0.0.0:19092
       - --advertise-kafka-addr
       - PLAINTEXT://redpanda:19092
-      - --check-enabled=false
     networks: [internal]
     mem_limit: 512m
     cpus: 0.5
     healthcheck:
-      test: ["CMD-SHELL", "rpk cluster health | grep -q 'Healthy: true'"]
+      test: ["CMD-SHELL", "rpk cluster health -X brokers=127.0.0.1:19092 | grep -qE 'Healthy:[[:space:]]+true'"]
       interval: 20s
       timeout: 5s
       retries: 5
     logging: *log
 
+  # One-shot job: siapkan topic `orders` (3 partisi, RF 1 single-node).
+  # Idempoten — create gagal bila sudah ada → describe sebagai konfirmasi.
+  redpanda-init:
+    image: redpandadata/redpanda:v24.2.7
+    container_name: lastmile-redpanda-init
+    profiles: [infra]
+    restart: on-failure
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        rpk topic create orders -p 3 -r 1 -X brokers=redpanda:19092 \
+          || rpk topic describe orders -X brokers=redpanda:19092
+    networks: [internal]
+    mem_limit: 64m
+    cpus: 0.2
+    logging: *log
+
   # ---- Fase 1: simulasi inti + streaming (image dari GHCR) ----
 
   # Jaringan internal saja (TIDAK dipublish ke host) — diakses ws/api gateway.
+  # ORDER_SOURCE=internal (default): generator Poisson internal → demo tidak
+  # pernah mati tanpa infra. Override compose.pipeline.yaml mengubah ke pipeline.
   rider-sim:
     image: ghcr.io/ricothenfx/lastmile-rider-sim:${LASTMILE_IMAGE_TAG:-latest}
     container_name: lastmile-rider-sim
@@ -110,12 +134,14 @@ services:
     restart: unless-stopped
     environment:
       PORT: "4201"
+      ORDER_SOURCE: "internal"
       RIDERS: "60"
       ORDER_RATE_PER_MIN: "20"
       SPEED_MPS: "5.5"
       TICK_HZ: "10"
       ORDER_TTL_SEC: "90"
       WEATHER_FACTOR: "1.0"
+      SURGE_FACTOR: "1.0"
       SEED: "42"
     networks: [internal]
     mem_limit: 128m
@@ -161,6 +187,10 @@ services:
     environment:
       PORT: "3010"
       RIDER_SIM_URL: http://rider-sim:4201
+      SIM_CONTROL_URL: http://sim-control:3013
+      ORDER_INGESTION_URL: http://order-ingestion:4202
+      DISPATCH_CONSUMER_URL: http://dispatch-consumer:4203
+      LOADGEN_URL: http://loadgen:4204
     ports:
       - "${LASTMILE_BIND_IP:-127.0.0.1}:3010:3010"
     depends_on:
@@ -174,4 +204,147 @@ services:
       interval: 15s
       timeout: 3s
       retries: 5
+    logging: *log
+
+  # ---- Fase 2: pipeline order (profile `pipeline`) ----
+
+  # One-shot job migrasi (idempoten SQL). restart on-failure: exit 0 tidak diulang.
+  db-migrate:
+    image: postgres:16-alpine
+    container_name: lastmile-db-migrate
+    profiles: [pipeline]
+    restart: on-failure
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${LASTMILE_PG_PASSWORD:?set in .env}
+    volumes:
+      - ../apps/services/migrations:/migrations:ro
+    entrypoint: ["psql"]
+    command:
+      - "-h"
+      - "postgres"
+      - "-U"
+      - "lastmile"
+      - "-d"
+      - "lastmile"
+      - "-v"
+      - "ON_ERROR_STOP=1"
+      - "-f"
+      - "/migrations/001_phase2_orders.sql"
+    networks: [internal]
+    mem_limit: 64m
+    cpus: 0.2
+    logging: *log
+
+  order-ingestion:
+    image: ghcr.io/ricothenfx/lastmile-order-ingestion:${LASTMILE_IMAGE_TAG:-latest}
+    container_name: lastmile-order-ingestion
+    profiles: [pipeline]
+    restart: unless-stopped
+    environment:
+      PORT: "4202"
+      REDIS_ADDR: redis:6379
+      KAFKA_BROKERS: redpanda:19092
+      KAFKA_TOPIC: orders
+      DATABASE_URL: postgres://lastmile:${LASTMILE_PG_PASSWORD}@postgres:5432/lastmile?sslmode=disable
+      QUEUE_CAPACITY: "8192"
+      IDEM_TTL_HOURS: "24"
+    depends_on:
+      redpanda-init:
+        condition: service_completed_successfully
+      db-migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    networks: [internal]
+    mem_limit: 96m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4202/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    logging: *log
+
+  dispatch-consumer:
+    image: ghcr.io/ricothenfx/lastmile-dispatch-consumer:${LASTMILE_IMAGE_TAG:-latest}
+    container_name: lastmile-dispatch-consumer
+    profiles: [pipeline]
+    restart: unless-stopped
+    environment:
+      PORT: "4203"
+      KAFKA_BROKERS: redpanda:19092
+      KAFKA_TOPIC: orders
+      KAFKA_GROUP: dispatch-consumer
+      RIDER_SIM_URL: http://rider-sim:4201
+      DATABASE_URL: postgres://lastmile:${LASTMILE_PG_PASSWORD}@postgres:5432/lastmile?sslmode=disable
+      BATCH_MAX: "200"
+    depends_on:
+      redpanda-init:
+        condition: service_completed_successfully
+      db-migrate:
+        condition: service_completed_successfully
+      rider-sim:
+        condition: service_healthy
+    networks: [internal]
+    mem_limit: 96m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4203/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    logging: *log
+
+  # Satu-satunya service pipeline yang dipublish ke host (loopback) —
+  # kontrol operator; frontend masuk lewat proxy api-gateway.
+  sim-control:
+    image: ghcr.io/ricothenfx/lastmile-sim-control:${LASTMILE_IMAGE_TAG:-latest}
+    container_name: lastmile-sim-control
+    profiles: [pipeline]
+    restart: unless-stopped
+    environment:
+      PORT: "3013"
+      RIDER_SIM_URL: http://rider-sim:4201
+      LOADGEN_URL: http://loadgen:4204
+    ports:
+      - "127.0.0.1:3013:3013"
+    depends_on:
+      rider-sim:
+        condition: service_healthy
+    networks: [internal]
+    mem_limit: 64m
+    cpus: 0.1
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3013/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    logging: *log
+
+  # Hanya jalan saat pengujian beban (--profile loadtest) — BUKAN permanen.
+  # RUN_DURATION_SEC > 0 → keluar sendiri setelah selesai (laporan load test).
+  loadgen:
+    image: ghcr.io/ricothenfx/lastmile-loadgen:${LASTMILE_IMAGE_TAG:-latest}
+    container_name: lastmile-loadgen
+    profiles: [loadtest]
+    restart: "no"
+    environment:
+      PORT: "4204"
+      ORDER_URL: http://order-ingestion:4202
+      RATE_PER_MIN: "300"
+      SPIKE_FACTOR: "10"
+      SPIKE_EVERY_SEC: "90"
+      SPIKE_DURATION_SEC: "60"
+      RUN_DURATION_SEC: "300"
+      MAX_CONCURRENCY: "64"
+      SEED: "7"
+    depends_on:
+      order-ingestion:
+        condition: service_healthy
+    networks: [internal]
+    mem_limit: 64m
+    cpus: 0.25
     logging: *log

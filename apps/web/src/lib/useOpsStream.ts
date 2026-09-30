@@ -23,6 +23,7 @@ const CONNECT_TIMEOUT_MS = 3000; // DoD: WS tak tersambung 3 detik → replay
 const FRESH_MS = 3000;
 const RETRY_LIVE_MS = 6000;
 const MAX_FRAMES = 3;
+const STATS_ECHO_MS = 250; // throttle angka live (Surge Console echo < 1s, TopBar tetap murah)
 
 /**
  * Satu sumber data untuk seluruh UI:
@@ -160,7 +161,7 @@ export function useOpsStream(): OpsStream {
         f.push({ snap, at: lastFrameAt.current });
         while (f.length > MAX_FRAMES) f.shift();
         if (modeRef.current !== 'live') applyMode('live');
-        if (lastFrameAt.current - lastStatsAt.current > 500) {
+        if (lastFrameAt.current - lastStatsAt.current > STATS_ECHO_MS) {
           lastStatsAt.current = lastFrameAt.current;
           statsRef.current = snap.st ?? null;
           setStats(statsRef.current);

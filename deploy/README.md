@@ -19,20 +19,31 @@ Internet
         │  Docker compose project: lastmile  (network internal)  │
         │  3010 api-gateway · 3012 ws-gateway · 3013 sim-control │
         │  3030 grafana (opsional) · 5434 postgres · 6380 redis  │
-        │  4201-4204 internal services (tidak publish ke host)   │
+        │  4201 rider-sim · 4202 order-ingestion · 4203 dispatch │
+        │  4204 loadgen (profile loadtest saja)                  │
         │  redpanda 19092 (internal network saja)                │
         └────────────────────────────────────────────────────────┘
 ```
+
+Pipeline order (Fase 2): `loadgen/klien → POST /orders (order-ingestion :4202,
+idempotency Redis + Postgres + ack Kafka sync) → topic `orders` (Redpanda, 3
+partisi) → dispatch-consumer :4203 (FIFO via pkg/dispatch, commit offset manual,
+dedupe by order id) → injeksi ke rider-sim :4201 (validasi ulang + FIFO fallback)
+→ Postgres `orders`/`order_events`. Kontrol live: api-gateway `/api/control/*` →
+sim-control :3013 → rider-sim (+loadgen saat hidup).
 
 ## 2. Blok Port (terdaftar di /home/rico/PORTS.md)
 
 | Port | Pemilik | Bind | Catatan |
 |---|---|---|---|
-| 3010 | lastmile-api-gateway | 127.0.0.1 | via Caddy api.* |
+| 3010 | lastmile-api-gateway | 127.0.0.1 | via Caddy api.*; proxy /api/control/* + /api/metrics |
 | 3012 | lastmile-ws-gateway | 127.0.0.1 | via Caddy ws.* (WebSocket) |
-| 3013 | lastmile-sim-control | 127.0.0.1 | kontrol simulasi/chaos |
-| 3030 | lastmile-grafana (opsional) | 127.0.0.1 | dashboard internal |
-| 4201–4204 | dispatch/rider-sim/loadgen/replay | tidak dipublish | jaringan docker internal |
+| 3013 | lastmile-sim-control | 127.0.0.1 | kontrol surge/weather (dipakai UI via api-gateway) |
+| 3030 | lastmile-grafana (opsional) | 127.0.0.1 | Fase 4+ (Fase 2: metrik JSON /api/metrics — ADR D16) |
+| 4201 | rider-sim | tidak dipublish | jaringan docker internal |
+| 4202 | order-ingestion | tidak dipublish | POST /orders internal |
+| 4203 | dispatch-consumer | tidak dipublish | healthz/metrics internal |
+| 4204 | loadgen | tidak dipublish | hanya profile loadtest |
 | 5434 | lastmile-postgres | 127.0.0.1 | instance sendiri, BUKAN 5433 aviation |
 | 6380 | lastmile-redis | 127.0.0.1 | instance sendiri, BUKAN 6379 aviation |
 | 9091 | lastmile-prometheus (reserved) | 127.0.0.1 | Fase 4+ |
@@ -63,6 +74,28 @@ git push main
 - Rollback: `docker compose -p lastmile pull` tag sebelumnya + `up -d` (image lama
   diretas oleh tag; simpan 3 tag terakhir).
 - Zero-downtime target: satu service diganti satu waktu (`up -d --no-deps <svc>`).
+
+### 4.1 Mode operasi stack (Fase 2)
+
+```bash
+# DEMO (aman 24/7 — tanpa infra, generator internal, demo tidak pernah mati):
+docker compose -p lastmile --profile sim up -d
+
+# PIPELINE PENUH (order via Kafka; rider-sim ORDER_SOURCE=pipeline):
+docker compose -p lastmile -f deploy/compose.yaml -f deploy/compose.pipeline.yaml \
+  --profile infra --profile sim --profile pipeline up -d
+
+# LOAD TEST (sementara — matikan lagi setelah selesai):
+... --profile loadtest up -d loadgen     # hasil: docker logs lastmile-loadgen
+```
+
+- Override `deploy/compose.pipeline.yaml` hanya mengubah `rider-sim` →
+  `ORDER_SOURCE=pipeline`. Tanpa override itu, demo tetap internal.
+- Setelah load test: kembali ke mode demo
+  (`docker compose -p lastmile -f deploy/compose.yaml --profile sim up -d`).
+- Angka zero-loss & prosedur lengkap: `reports/phase-02-loadtest.md`.
+- Metrik pipeline (JSON): `GET :3010/api/metrics` (agregasi ingestion/consumer/
+  loadgen) atau per service `/metrics` di jaringan internal.
 
 ## 5. Caddy (DRAFT sampai Fase 6)
 

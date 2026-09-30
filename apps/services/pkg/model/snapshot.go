@@ -74,6 +74,41 @@ type Stats struct {
 	Idle      int    `json:"id"`
 	Strategy  string `json:"stg,omitempty"`
 	UptimeSec int64  `json:"up,omitempty"`
+	// Fase 2 — field OPTIONAL (kontrak tidak breaking): frontend lama aman.
+	Created       int     `json:"cr,omitempty"` // kumulatif order dibuat (internal+pipeline)
+	SurgeFactor   float64 `json:"su,omitempty"` // pengali demand aktif (1 = normal)
+	WeatherFactor float64 `json:"we,omitempty"` // pengali kecepatan rider (1 = cerah, <1 hujan)
+}
+
+// OrderMsg adalah payload topic Kafka `orders` (ingestion → consumer).
+type OrderMsg struct {
+	ID             string  `json:"id"`
+	IdempotencyKey string  `json:"idempotency_key,omitempty"`
+	PickupLat      float64 `json:"pickup_lat"`
+	PickupLon      float64 `json:"pickup_lon"`
+	DropoffLat     float64 `json:"dropoff_lat"`
+	DropoffLon     float64 `json:"dropoff_lon"`
+	CreatedMs      int64   `json:"created_ms,omitempty"`
+	Source         string  `json:"source,omitempty"`
+}
+
+// ExternalOrder dikirim dispatch-consumer → rider-sim (POST /internal/orders).
+// RiderID -1 = belum ada assignment (engine dispatch ulang via FIFO internal).
+type ExternalOrder struct {
+	ID         string  `json:"id"`
+	PickupLat  float64 `json:"pickup_lat"`
+	PickupLon  float64 `json:"pickup_lon"`
+	DropoffLat float64 `json:"dropoff_lat"`
+	DropoffLon float64 `json:"dropoff_lon"`
+	CreatedMs  int64   `json:"created_ms,omitempty"`
+	RiderID    int     `json:"rider_id"`
+	DistM      float64 `json:"dist_m,omitempty"`
+}
+
+// ControlRequest untuk POST /internal/control (rider-sim) — field optional.
+type ControlRequest struct {
+	Surge   *float64 `json:"surge,omitempty"`
+	Weather *float64 `json:"weather,omitempty"`
 }
 
 // Decision adalah explainability stub: alasan keputusan dispatch.

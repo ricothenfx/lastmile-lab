@@ -5,18 +5,22 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** 2 — Order ingestion + load generator + Surge Console dasar
-  (spec: `docs/PHASES/phase-02.md`)
-- **Kondisi:** Fase 1 SELESAI — simulasi inti + Live Ops Map hidup end-to-end
-  (Go backend 3 service + Next.js app + replay fallback + CI/GHCR). Detail di log
-  2026-09-30 (sesi 2) di bawah.
-- **Langkah berikutnya:** kick-off Fase 2 (baca AGENTS → PROGRESS → ROADMAP →
-  `PHASES/phase-02.md`), mulai dari order-ingestion + Redpanda consumer.
-- **Blokir/tergantung user:** none untuk koding. Untuk GO-LIVE publik (opsional, bukan
-  blokir fase): (a) DNS `ws.lastmile-lab` & `api.lastmile-lab` → A record IP VPS,
-  (b) one-time auth Vercel untuk deploy frontend — langkah tercantum di §Langkah sisa.
+- **Fase aktif:** 3 — Dispatch engine 4 strategi + Strategy Lab
+  (spec: `docs/PHASES/phase-03.md`)
+- **Kondisi:** Fase 2 SELESAI — pipeline order lengkap (ingestion idempotent →
+  Redpanda → dispatch-consumer → rider-sim `ORDER_SOURCE=pipeline|internal`),
+  Surge Console live (< 1 s), load test spike ×10 zero message loss
+  (`reports/phase-02-loadtest.md`), RAM stack 280 MiB aktual / 1.536 MiB limit.
+  7 image backend di GHCR. VPS berjalan dalam **mode demo** (profile `sim`,
+  generator internal — pipeline hidup kapan pun lewat perintah di
+  `deploy/README.md §4.1`).
+- **Langkah berikutnya:** kick-off Fase 3 (baca AGENTS → PROGRESS → ROADMAP →
+  `PHASES/phase-03.md`), mulai dari interface Strategy di `pkg/dispatch` yang
+  sudah siap diisi Batching/Zone/Optimal.
+- **Blokir/tergantung user:** none untuk koding. GO-LIVE publik tetap langkah
+  pemilik domain/akun (DNS `ws.`/`api.` → IP VPS; auth Vercel) — bukan blokir fase.
 
-## Langkah Sisa Go-Live (butuh akses pemilik — bukan blokir fase 2)
+## Langkah Sisa Go-Live (butuh akses pemilik — bukan blokir fase)
 
 1. **DNS** (pemilik domain ricothen.com): `ws.lastmile-lab` → A record IP VPS;
    `api.lastmile-lab` → A record IP VPS; `lastmile-lab` → CNAME `cname.vercel-dns.com`.
@@ -26,13 +30,61 @@
 3. **Vercel:** import repo (root dir `apps/web`), set env `NEXT_PUBLIC_WS_URL=
    wss://ws.lastmile-lab.ricothen.com/ws` & `NEXT_PUBLIC_API_URL=https://api.lastmile-
    lab.ricothen.com`, lalu domain custom. Frontend tanpa WS → otomatis replay mode
-   (tidak pernah putih).
+   (tidak pernah putih). Surge Console otomatis ikut via `api.` yang sama.
 4. **Verifikasi 60fps di laptop fisik** (kriteria DoD fase 1 — terpenuhi secara
    struktural; angka final di hardware target): buka app → DevTools Performance →
-   CPU 4× throttle → rekam 15 s → harapkan p50 frame ≤ 16,7 ms. Bukti pengukuran
-   headless + angka draw budget: lihat log sesi 2.
+   CPU 4× throttle → rekam 15 s → harapkan p50 frame ≤ 16,7 ms. Fase 2 menambah
+   panel Surge Console DOM kecil tanpa rAF baru — budget draw canvas berubah.
 
 ## Log
+
+### 2026-09-30 — Fase 2: Order ingestion + loadgen + Surge Console (sesi 3)
+
+- **Pipeline order end-to-end** (ADR D15): `order-ingestion` (:4202, internal) —
+  `POST /orders` validasi koordinat, idempotency Redis `SET NX` TTL 24h (header
+  `Idempotency-Key` atau hash body), backpressure antrean 8192 (429), tulis
+  Postgres + publish Kafka sync-ack → 201. `dispatch-consumer` (:4203) — konsumsi
+  topic `orders` (3 partisi, RF 1), `Strategy` FIFO via **path bersama
+  `pkg/dispatch`** (dipindah dari internal/sim, API lama tetap via alias),
+  commit offset manual per batch (at-least-once), dedupe 3 lapis (LRU 100k,
+  seen-set engine, unique index DB), injeksi assignment ke rider-sim
+  (`POST /internal/orders`) dengan validasi ulang + fallback FIFO internal.
+  `rider-sim` flag **`ORDER_SOURCE=internal|pipeline` (default internal — demo
+  tidak pernah mati)**; injeksi men-clamp `created_ms` wall-clock ke jam virtual.
+- **Load test spike ×10 ZERO MESSAGE LOSS** (`reports/phase-02-loadtest.md`):
+  Poisson 300 order/menit, spike ×10 (50/s) 2×60 s dalam 300 s →
+  **sent(acked) = consumed = stored = injected = 4.849**, 429 = 0, duplikat = 0,
+  consumer lag = 0; p50 POST 175 ms / p99 1.903 ms. Spot-check SQL konsisten
+  (4.849 orders + 4.908 events; 59 assigned).
+- **Surge Console** (kriteria pemblokir < 1 s): slider ×1→×10, toggle RAIN
+  (weather 0,6) & FLASH SALE (preset ×8); aksi → api-gateway `/api/control/*`
+  (proxy + CORS POST) → `sim-control` (:3013, loopback) → rider-sim (+loadgen).
+  Echo `su`/`we` field OPTIONAL di `model.Stats` (kontrak snapshot tidak breaking;
+  frontend fase 1 aman). Terukur: rantai API 14–420 ms; UI headless echo
+  226–874 ms — semua < 1 detik. Warna 100% token, tanpa rAF baru,
+  `prefers-reduced-motion` aman, console error 0. Bukti: `reports/`
+  (`phase-02-surge-console.png`, `phase-02-ui-verify.mjs`).
+- **Postgres** (:5434): tabel `orders` + `order_events` (migration idempoten,
+  job `db-migrate`); ingestion menulis `received`+event `ingested`, consumer
+  update `assigned`+event (unique per order+type → replay aman).
+- **loadgen** (:4204, profile `loadtest` saja): Poisson + skenario `spike` ×10
+  terjadwal, kontrol live `/control`, metrik lengkap, exit bersih setelah run.
+- **RAM** saat spike (profile sim+infra+pipeline+loadtest): **280 MiB aktual,
+  1.536 MiB total limit ≤ 2 GB** — rincian per kontainer di laporan.
+- **Grafana 3030** → diganti **metrik JSON** (`/metrics` per service + agregat
+  `/api/metrics`) sesuai opsi spec fase 2 untuk RAM sempit (ADR D16); Grafana
+  menyusul Fase 4.
+- **CI/CD**: images GHCR +4 service (total 7: rider-sim, ws-gateway, api-gateway,
+  order-ingestion, dispatch-consumer, sim-control, loadgen); go.mod naik ke
+  go 1.26 (franz-go, go-redis, pgx, miniredis test-only); Dockerfile +BuildKit
+  cache mount & GOMAXPROCS=2. CI backend/web hijau.
+- **Bug ditemukan & diperbaiki saat verifikasi live** (detail di laporan §7):
+  flag redpanda v24.2.7, healthcheck rpk (regex + broker addr), sintaks `-X`,
+  franz-go idempotent acks=all, counter `sent` + exit loadgen, fan-out async
+  sim-control, dan **clamp `created_ms`** (wall-clock vs jam virtual — tanpa ini
+  antrean sim menumpuk tanpa TTL). Semua masuk unit test.
+- Stack VPS dikembalikan ke mode demo (profile `sim`) setelah pengujian;
+  pipeline bisa dinyalakan kapan pun (deploy/README.md §4.1).
 
 ### 2026-09-30 — Fase 1: Simulasi inti + Live Ops Map (sesi 2)
 - **Data Berlin nyata dari OSM** (ADR D12): `tools/graphgen` (Overpass) → graph routing

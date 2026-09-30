@@ -29,7 +29,8 @@ type Config struct {
 	PickupDwellSec  float64 // ±30% jitter
 	DropoffDwellSec float64
 	OrderTTLSec     float64
-	WeatherFactor   float64 // stub cuaca — Fase 2 disambungkan ke Surge Console
+	WeatherFactor   float64 // pengali kecepatan rider (1 = cerah, <1 hujan) — live via SetControls
+	SurgeFactor     float64 // pengali laju order demand (1 = normal, max 10) — live via SetControls
 	MinTripM        float64 // jarak minimal pickup→dropoff
 }
 
@@ -45,39 +46,13 @@ func DefaultConfig() Config {
 		DropoffDwellSec: 8,
 		OrderTTLSec:     90,
 		WeatherFactor:   1.0,
+		SurgeFactor:     1.0,
 		MinTripM:        400,
 	}
 }
 
-// OrderView / RiderView melindungi Strategy dari state internal engine.
-type OrderView struct {
-	ID        string
-	CreatedMs int64
-	PickupLat float64
-	PickupLon float64
-}
-
-type RiderView struct {
-	ID     int
-	Status model.RiderStatus
-	Lat    float64
-	Lon    float64
-}
-
-// Assignment adalah satu keputusan dispatch + alasannya (explainability).
-type Assignment struct {
-	OrderID string
-	RiderID int
-	DistM   float64
-	Reason  string
-}
-
-// Strategy dipanggil tiap tick dengan antrean order tertua-dulu.
-// Implementasi TIDAK BOLEH memutasi state engine.
-type Strategy interface {
-	Name() string
-	Assign(orders []OrderView, riders []RiderView) []Assignment
-}
+// OrderView / RiderView / Assignment / Strategy kini alias ke pkg/dispatch —
+// lihat strategy.go (Fase 2: strategi dipakai lintas service).
 
 type rider struct {
 	id           int
@@ -115,7 +90,20 @@ type Engine struct {
 	delivered int
 	expired   int
 	startWall time.Time
+
+	// Kontrol live (Surge Console, Fase 2) — clamp di SetControls.
+	surgeFactor   float64
+	weatherFactor float64
+
+	// Pipeline mode (Fase 2): order eksternal + dedupe at-least-once.
+	createdTotal int
+	seenExt      map[string]struct{}
+	seenRing     []string
+	seenIdx      int
 }
+
+// seenCap batas dedupe order eksternal (ring; consumer juga dedupe + DB unique).
+const seenCap = 100_000
 
 func New(g *graph.Graph, cfg Config, strategy Strategy) (*Engine, error) {
 	if cfg.Riders <= 0 || cfg.TickHz <= 0 || cfg.OrderRatePerMin < 0 {
@@ -125,12 +113,16 @@ func New(g *graph.Graph, cfg Config, strategy Strategy) (*Engine, error) {
 		strategy = FIFO{}
 	}
 	e := &Engine{
-		cfg:         cfg,
-		g:           g,
-		rng:         rand.New(rand.NewSource(cfg.Seed)),
-		strategy:    strategy,
-		nextSpawnMs: 0,
-		startWall:   time.Now(),
+		cfg:           cfg,
+		g:             g,
+		rng:           rand.New(rand.NewSource(cfg.Seed)),
+		strategy:      strategy,
+		nextSpawnMs:   0,
+		startWall:     time.Now(),
+		surgeFactor:   clampFactor(cfg.SurgeFactor, 1, 10, 1),
+		weatherFactor: clampFactor(cfg.WeatherFactor, 0.2, 2, 1),
+		seenExt:       make(map[string]struct{}, seenCap),
+		seenRing:      make([]string, 0, seenCap),
 	}
 	if len(g.POIs()) < 2 {
 		return nil, fmt.Errorf("graph needs >= 2 POIs")
@@ -170,7 +162,7 @@ func (e *Engine) spawnOrders() {
 	if e.cfg.OrderRatePerMin <= 0 {
 		return
 	}
-	lambdaPerMs := e.cfg.OrderRatePerMin / 60000
+	lambdaPerMs := e.cfg.OrderRatePerMin * e.surgeFactor / 60000
 	for e.nextSpawnMs <= e.nowMs {
 		e.nextSpawnMs += int64(e.rng.ExpFloat64() / lambdaPerMs)
 		e.spawnOrder()
@@ -198,6 +190,7 @@ func (e *Engine) spawnOrder() {
 		return
 	}
 	e.nextOrderN++
+	e.createdTotal++
 	e.orders = append(e.orders, &order{
 		id:        fmt.Sprintf("o%06d", e.nextOrderN),
 		status:    model.OrderWaiting,
@@ -247,7 +240,7 @@ func (e *Engine) advanceRider(r *rider, dtS float64) {
 	if r.status == model.RiderToPickup || r.status == model.RiderDelivering {
 		speed = e.cfg.SpeedMPS
 	}
-	remaining := speed * e.cfg.WeatherFactor * dtS
+	remaining := speed * e.weatherFactor * dtS
 
 	for remaining > 0 {
 		edgeLen := e.g.EdgeLenM(r.from, r.to)
@@ -375,6 +368,128 @@ func (e *Engine) dispatch() {
 	}
 }
 
+// SetControls mengubah surge (×1–×10, pengali demand) dan/atau weather
+// (×0.2–×2, pengali kecepatan rider) secara live — dipakai sim-control.
+// Nilai nil = tidak diubah.
+func (e *Engine) SetControls(surge, weather *float64) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if surge != nil {
+		e.surgeFactor = clampFactor(*surge, 1, 10, 1)
+	}
+	if weather != nil {
+		e.weatherFactor = clampFactor(*weather, 0.2, 2, 1)
+	}
+}
+
+// Controls membaca nilai surge/weather aktif.
+func (e *Engine) Controls() (surge, weather float64) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.surgeFactor, e.weatherFactor
+}
+
+func clampFactor(v, min, max, def float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return def
+	}
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
+// InjectExternal memasukkan order dari pipeline (dispatch-consumer) ke engine.
+// Return: hasil ("assigned"|"queued"|"duplicate"|"rejected") dan riderID (-1 bila
+// belum ter-assign). Dedupe by order id — at-least-once Kafka aman. Bila rider
+// yang diusulkan tidak lagi idle, order tetap masuk antrean dan FIFO internal
+// engine yang menugaskan di tick berikutnya (fallback, tidak ada order hilang).
+func (e *Engine) InjectExternal(o model.ExternalOrder) (string, int) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if o.ID == "" {
+		return "rejected", -1
+	}
+	if _, dup := e.seenExt[o.ID]; dup {
+		return "duplicate", -1
+	}
+	pickup := e.nearestPOI(o.PickupLat, o.PickupLon)
+	dropoff := e.g.NearestNode(o.DropoffLat, o.DropoffLon)
+	createdMs := o.CreatedMs
+	// created_ms dari produsen adalah wall-clock; engine memakai jam virtual
+	// yang mulai dari 0. Clamp: pesan "dari masa depan" (wall-clock) dan pesan
+	// tanpa timestamp dihitung tiba sekarang — supaya TTL & urutan FIFO valid.
+	if createdMs <= 0 || createdMs > e.nowMs {
+		createdMs = e.nowMs
+	}
+	e.recordSeen(o.ID)
+	ord := &order{
+		id:        o.ID,
+		status:    model.OrderWaiting,
+		pickup:    pickup,
+		dropoff:   dropoff,
+		createdMs: createdMs,
+		riderID:   -1,
+	}
+	e.orders = append(e.orders, ord)
+	e.createdTotal++
+
+	if o.RiderID >= 0 {
+		r := e.riderByID(o.RiderID)
+		if r != nil && r.status == model.RiderIdle {
+			path := e.g.Dijkstra(r.to, pickup)
+			if path != nil {
+				r.route = path[1:]
+				r.status = model.RiderToPickup
+				r.orderID = ord.id
+				ord.status = model.OrderAssigned
+				ord.riderID = r.id
+				e.pushDecision(model.Decision{
+					Seq: e.seq, T: e.nowMs, Strategy: "fifo(pipeline)",
+					OrderID: ord.id, RiderID: r.id,
+					DistM:  math.Round(o.DistM),
+					Reason: fmt.Sprintf("pipeline: dispatch-consumer → rider r%d (%.0f m); engine validasi ulang saat injeksi", r.id, o.DistM),
+				})
+				return "assigned", r.id
+			}
+		}
+	}
+	return "queued", -1
+}
+
+// nearestPOI mencari POI kuliner terdekat (pickup selalu di resto, bukan node jalan).
+func (e *Engine) nearestPOI(lat, lon float64) int {
+	best, bestD := 0, math.MaxFloat64
+	for _, p := range e.g.POIs() {
+		d := (e.g.NodeLat(p)-lat)*(e.g.NodeLat(p)-lat) + (e.g.NodeLon(p)-lon)*(e.g.NodeLon(p)-lon)
+		if d < bestD {
+			best, bestD = p, d
+		}
+	}
+	return best
+}
+
+func (e *Engine) recordSeen(id string) {
+	if len(e.seenRing) < seenCap {
+		e.seenRing = append(e.seenRing, id)
+	} else {
+		delete(e.seenExt, e.seenRing[e.seenIdx])
+		e.seenRing[e.seenIdx] = id
+		e.seenIdx = (e.seenIdx + 1) % seenCap
+	}
+	e.seenExt[id] = struct{}{}
+}
+
+// CreatedTotal — kumulatif order dibuat (internal + pipeline), untuk konsistensi DB.
+func (e *Engine) CreatedTotal() int {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.createdTotal
+}
+
 func (e *Engine) pushDecision(d model.Decision) {
 	e.decisions = append([]model.Decision{d}, e.decisions...)
 	if len(e.decisions) > 25 {
@@ -477,6 +592,10 @@ func (e *Engine) snapshotLocked() model.Snapshot {
 		Active:    len(e.orders),
 		Idle:      idle,
 		Strategy:  e.strategy.Name(),
+		// Field optional Fase 2 — ada hanya bila backend baru (kontrak aman).
+		Created:       e.createdTotal,
+		SurgeFactor:   e.surgeFactor,
+		WeatherFactor: e.weatherFactor,
 	}
 	return s
 }

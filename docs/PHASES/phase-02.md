@@ -55,16 +55,22 @@ Semua angka (throughput, loss) terdokumentasi di `reports/`.
 
 ## Definition of Done
 
-- [ ] `POST /orders` idempotent: dua POST dengan key sama → 1 order (terbukti di test)
-- [ ] Spike ×10: zero message loss end-to-end (sent = consumed = stored), angka di
-      `reports/`
-- [ ] Rider bergerak berdasarkan order dari pipeline (flag `pipeline`), fallback
-      internal tetap jalan
-- [ ] Surge Console: slider ×8 + hujan → efek di map < 1 detik (terverifikasi manual)
-- [ ] Postgres berisi order + events yang konsisten dengan snapshot (spot-check SQL)
-- [ ] Semua service baru punya `/healthz` + limit RAM + masuk CI hijau
-- [ ] Budget RAM total stack ≤ 2 GB saat profile sim+infra aktif (tercatat angkanya)
-- [ ] DoD fase + dokumen diperbarui, commit & push
+> Hasil verifikasi: `reports/phase-02-loadtest.md` (log sesi 3 di PROGRESS.md).
+
+- [x] `POST /orders` idempotent: dua POST dengan key sama → 1 order (terbukti di test
+      — unit test CI + live curl 201→200 `Idempotent-Replay: true`)
+- [x] Spike ×10: zero message loss end-to-end (sent = consumed = stored = 4.849),
+      angka di `reports/`
+- [x] Rider bergerak berdasarkan order dari pipeline (flag `pipeline`), fallback
+      internal tetap jalan (default `internal`, demo tidak pernah mati)
+- [x] Surge Console: slider ×8 + hujan → efek di map < 1 detik (terverifikasi:
+      headless UI echo 226–874 ms; rantai API 14–420 ms)
+- [x] Postgres berisi order + events yang konsisten dengan snapshot (spot-check SQL:
+      4.849 orders / 4.908 events ↔ engine `cr` 4.849)
+- [x] Semua service baru punya `/healthz` + limit RAM + masuk CI hijau
+- [x] Budget RAM total stack ≤ 2 GB saat profile sim+infra aktif (tercatat angkanya:
+      280 MiB aktual / 1.536 MiB limit saat spike)
+- [x] DoD fase + dokumen diperbarui, commit & push
 
 ## Catatan Teknis
 

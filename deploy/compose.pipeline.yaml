@@ -1,0 +1,13 @@
+# Override untuk pipeline penuh Fase 2 (rider-sim makan dari Kafka):
+#
+#   docker compose -p lastmile -f deploy/compose.yaml -f deploy/compose.pipeline.yaml \
+#     --profile infra --profile sim --profile pipeline up -d
+#
+# Tanpa file ini (compose.yaml saja) rider-sim tetap ORDER_SOURCE=internal —
+# demo jalan tanpa infra sama sekali (aturan keras: demo tidak boleh mati).
+
+services:
+  rider-sim:
+    environment:
+      ORDER_SOURCE: "pipeline"
+      ORDER_RATE_PER_MIN: "0"

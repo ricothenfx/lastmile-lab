@@ -1,5 +1,5 @@
 # Build context: apps/services (root modul Go).
-# docker build -f api-gateway/Dockerfile .
+# docker build -f dispatch-consumer/Dockerfile .
 # syntax=docker/dockerfile:1
 FROM golang:1.26-alpine AS build
 WORKDIR /src
@@ -8,14 +8,14 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY . .
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOMAXPROCS=2 go build -trimpath -ldflags="-s -w" -o /out/api-gateway ./api-gateway
+    CGO_ENABLED=0 GOMAXPROCS=2 go build -trimpath -ldflags="-s -w" -o /out/dispatch-consumer ./dispatch-consumer
 
 FROM alpine:3.20
 RUN addgroup -g 10001 app && adduser -D -u 10001 -G app app
-COPY --from=build /out/api-gateway /app/api-gateway
+COPY --from=build /out/dispatch-consumer /app/dispatch-consumer
 USER app
-ENV PORT=3010
-EXPOSE 3010
+ENV PORT=4203
+EXPOSE 4203
 HEALTHCHECK --interval=15s --timeout=3s --start-period=5s --retries=5 \
   CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/healthz" || exit 1
-ENTRYPOINT ["/app/api-gateway"]
+ENTRYPOINT ["/app/dispatch-consumer"]

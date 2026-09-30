@@ -10,7 +10,7 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 |---|---|---|
 | 0 | Bootstrap repo, docs, CI, deploy skeleton | ✅ |
 | 1 | Simulasi inti + Live Ops Map | ✅ |
-| 2 | Order ingestion + load generator + Surge Console dasar | ⬜ |
+| 2 | Order ingestion + load generator + Surge Console dasar | ✅ |
 | 3 | Dispatch engine 4 strategi + Strategy Lab | ⬜ |
 | 4 | KPI Command Deck + System Health + chaos | ⬜ |
 | 5 | Replay engine + Golden Demo presets + polish motion | ⬜ |
@@ -52,15 +52,17 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 
 ## Fase 2 — Order ingestion + load + Surge Console
 
-**DoD:**
-- [ ] order-ingestion API idempotent (Redis) + Redpanda + consumer pipeline
-- [ ] load-generator Poisson + skenario surge ×10
-- [ ] Postgres menyimpan order/events; health endpoint semua service
-- [ ] Surge Console: slider surge, toggle hujan/flash-sale — bereaksi < 1 detik di UI
-- [ ] Load test terdokumentasi: zero message loss pada spike ×10, angka tercatat di
-      `reports/`
-- [ ] Grafana dashboard dasar (port 3030, loopback) menampilkan pipeline
-- [ ] Commit & push
+**DoD:** (bukti angka: `reports/phase-02-loadtest.md`)
+- [x] order-ingestion API idempotent (Redis) + Redpanda + consumer pipeline
+- [x] load-generator Poisson + skenario surge ×10
+- [x] Postgres menyimpan order/events; health endpoint semua service
+- [x] Surge Console: slider surge, toggle hujan/flash-sale — bereaksi < 1 detik di UI
+      (headless: 226–874 ms; rantai API 14–420 ms)
+- [x] Load test terdokumentasi: zero message loss pada spike ×10, angka tercatat di
+      `reports/` (sent = consumed = stored = injected = 4.849; 429 = 0; lag = 0)
+- [x] Grafana dasar (port 3030, loopback) → **diganti metrik JSON** sesuai opsi spec
+      fase 2 (RAM sempit, ADR D16); Grafana menyusul di Fase 4 (System Health)
+- [x] Commit & push
 
 ## Fase 3 — Dispatch engine + Strategy Lab
 
