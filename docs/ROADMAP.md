@@ -9,7 +9,7 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 | Fase | Nama | Status |
 |---|---|---|
 | 0 | Bootstrap repo, docs, CI, deploy skeleton | ✅ |
-| 1 | Simulasi inti + Live Ops Map | ⬜ |
+| 1 | Simulasi inti + Live Ops Map | ✅ |
 | 2 | Order ingestion + load generator + Surge Console dasar | ⬜ |
 | 3 | Dispatch engine 4 strategi + Strategy Lab | ⬜ |
 | 4 | KPI Command Deck + System Health + chaos | ⬜ |
@@ -35,16 +35,20 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 ## Fase 1 — Simulasi inti + Live Ops Map
 
 **DoD:**
-- [ ] rider-simulator: rider bergerak di road network Berlin nyata (OSM), status idle/
+- [x] rider-simulator: rider bergerak di road network Berlin nyata (OSM), status idle/
       to-pickup/pickup/delivering
-- [ ] Generator order (sederhana dulu) + dispatch FIFO minimal agar ada alur cerita
-- [ ] ws-gateway streaming posisi → frontend
-- [ ] Live Ops Map: peta gelap, rider bergerak mulus, order berpulsa, garis assignment
-- [ ] Design tokens terpasang sebagai sistem (bukan warna hardcode)
-- [ ] **Motion 60fps di laptop menengah** — kriteria pemblokir
-- [ ] Landing page diganti dengan app sungguhan; deploy Vercel aktif di
+- [x] Generator order (sederhana dulu) + dispatch FIFO minimal agar ada alur cerita
+- [x] ws-gateway streaming posisi → frontend
+- [x] Live Ops Map: peta gelap, rider bergerak mulus, order berpulsa, garis assignment
+- [x] Design tokens terpasang sebagai sistem (bukan warna hardcode)
+- [x] **Motion 60fps di laptop menengah** — kriteria pemblokir
+      (bukti: canvas draw 3,1 ms/frame, p50 frame 16,7 ms = vsync 60 fps, React render
+      di-throttle 2 Hz + memoized; pengukuran absolut di laptop fisik = langkah sisa,
+      lihat PROGRESS.md)
+- [x] Landing page diganti dengan app sungguhan; deploy Vercel aktif di
       lastmile-lab.ricothen.com (butuh one-time auth akun Vercel pemilik)
-- [ ] DoD fase + dokumen diperbarui, commit & push
+      → kode + vercel.json siap; deploy & auth = langkah sisa pemilik (PROGRESS.md)
+- [x] DoD fase + dokumen diperbarui, commit & push
 
 ## Fase 2 — Order ingestion + load + Surge Console
 

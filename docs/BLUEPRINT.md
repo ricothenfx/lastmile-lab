@@ -115,6 +115,9 @@ pipeline. Hasil assignment disertai alasan (explainability) untuk panel Replay.
 | D9 | 2026-09-30 | **Replay mode** wajib sejak Fase 5 | Anti-halaman-mati saat reviewer datang di waktu apa pun |
 | D10 | 2026-09-30 | Penamaan netral `lastmile-lab` | Portabel ke semua perusahaan sejenis (DH, Wolt, Deliveroo, Bolt, Uber Eats, Getir) |
 | D11 | 2026-09-30 | Isolasi VPS: blok port sendiri, limit CPU/RAM per container, log rotation | Lihat `deploy/README.md`; registry di `/home/rico/PORTS.md` |
+| D12 | 2026-09-30 | Peta **tanpa tile provider eksternal** — style MapLibre self-hosted dari ekstrak OSM (roads/water GeoJSON di repo, generator `tools/graphgen`) | Nol API key/kuota/billing (memperkuat D3); visual 100% konsisten token; ekstrak inner-city Berlin 9.459 node / 18.571 edge cukup untuk demo & sim |
+| D13 | 2026-09-30 | Engine simulasi **virtual-clock deterministik** (`Tick(dt)`, seed RNG) di `internal/sim`; ws-gateway & api-gateway konsumsi snapshot via HTTP internal 10 Hz (polling), bukan langsung import | Sim, fixturegen, dan test = kode yang sama; kontrak `model.Snapshot` stabil sehingga Fase 2 bisa ganti sumber order ke Redpanda tanpa sentuh frontend; polling 10 Hz cukup (client di-interpolasi 60 fps) |
+| D14 | 2026-09-30 | Replay fallback sejak Fase 1 = **fixture rekaman nyata** dari simulasi (`tools/fixturegen`, seed tetap, 5 Hz) yang di-commit; frontend memutar loop + banner saat WS mati | Anti-halaman-mati sejak hari pertama (D9 dipercepat dari Fase 5); data replay bukan karangan — direkam dari engine yang sama |
 
 ## 6. Frontend — 6 Layar Control Room ("Pulse")
 

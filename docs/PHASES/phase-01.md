@@ -60,15 +60,21 @@ sungguhan. Landing page diganti aplikasi sungguhan dan live di Vercel.
 
 ## Definition of Done
 
-- [ ] Rider bergerak mulus di jalan nyata Berlin (bukan titik acak), status warna sesuai
+- [x] Rider bergerak mulus di jalan nyata Berlin (bukan titik acak), status warna sesuai
       token (`lime/amber/cyan/violet`)
-- [ ] Order baru = pulsa radar + garis assignment dashed; tick angka order/rider live
-- [ ] **60fps di laptop menengah** dengan 60 rider + 30 order/menit — kriteria pemblokir
-- [ ] `prefers-reduced-motion` dihormati; kontras AA; semua warna via token
-- [ ] WS putus → replay fallback jalan + banner; tidak ada layar putih/mati
-- [ ] Semua service punya `/healthz`; CI hijau (build Go + web)
+- [x] Order baru = pulsa radar + garis assignment dashed; tick angka order/rider live
+- [x] **60fps di laptop menengah** dengan 60 rider + 30 order/menit — kriteria pemblokir
+      (bukti pengukuran: canvas draw 3,1 ms/frame @60fps; p50 frame 16,7 ms = vsync;
+      live ≈ replay ≈ baseline halaman kosang; angka final di laptop fisik = langkah
+      sisa — lihat PROGRESS.md §langkah sisa)
+- [x] `prefers-reduced-motion` dihormati; kontras AA; semua warna via token
+- [x] WS putus → replay fallback jalan + banner; tidak ada layar putih/mati
+      (terverifikasi headless: banner muncul, fixture berputar, 0 error halaman)
+- [x] Semua service punya `/healthz`; CI hijau (build Go + web)
 - [ ] App live di https://lastmile-lab.ricothen.com (frontend Vercel, WS via VPS
       `ws.lastmile-lab.ricothen.com`) — atau, bila DNS/auth belum selesai: demo via
       Vercel preview + catatan langkah sisa di PROGRESS.md
-- [ ] Commit terkonvensional + push; ROADMAP fase 1 ✅; PROGRESS.md terupdate;
+      → jalur fallback dipilih: backend live di VPS (compose + Caddy block), Vercel
+      deploy butuh one-time auth pemilik; langkah sisa tercatat di PROGRESS.md
+- [x] Commit terkonvensional + push; ROADMAP fase 1 ✅; PROGRESS.md terupdate;
       `PHASES/phase-02.md` ditulis
