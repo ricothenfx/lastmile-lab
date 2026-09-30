@@ -37,36 +37,42 @@ func TestAllowlistDeny(t *testing.T) {
 	}
 }
 
-// Mesin status: sehat → gagal probe membuka incident (t_start=terakhir
-// sehat, t_detect=kini) → sehat lagi menutup (t_recover).
+// Mesin status: sehat → 2 kegagalan beruntun membuka incident (flap
+// suppression: 1 kegagalan belum), t_start=terakhir sehat, t_detect=kini →
+// sehat lagi menutup (t_recover).
 func TestTrackerIncidentLifecycle(t *testing.T) {
 	off := 0
 	tr := newTracker(time.Second, fakeNow(&off))
 	tr.probe("rider-sim", true) // baseline sehat
 	off += 10
-	tr.probe("rider-sim", false)
+	tr.probe("rider-sim", false) // streak 1 — belum incident
+	if got := tr.incidentList(); len(got) != 0 {
+		t.Fatalf("1 kegagalan tidak boleh membuka incident: %+v", got)
+	}
+	off += 1
+	tr.probe("rider-sim", false) // streak 2 — incident terbuka
 	inc := tr.incidentList()
 	if len(inc) != 1 || inc[0].Kind != "health" {
 		t.Fatalf("incident tidak terbuka: %+v", inc)
 	}
-	if inc[0].TStart != fakeNow(&off)().Add(-10*time.Second).UnixMilli() {
+	if inc[0].TStart != fakeNow(&off)().Add(-11*time.Second).UnixMilli() {
 		t.Fatalf("t_start salah: %d", inc[0].TStart)
 	}
-	if inc[0].MTTDMs() != 10000 {
+	if inc[0].MTTDMs() != 11000 {
 		t.Fatalf("MTTD salah: %d", inc[0].MTTDMs())
 	}
-	off += 5
+	off += 4
 	if closed := tr.probe("rider-sim", true); closed == nil {
 		t.Fatal("recovery harus menutup incident")
 	} else {
-		if closed.TRecover == 0 || closed.MTTRMs() != 5000 {
+		if closed.TRecover == 0 || closed.MTTRMs() != 4000 {
 			t.Fatalf("MTTR salah: %d", closed.MTTRMs())
 		}
 	}
 	if len(tr.incidentList()) != 1 {
 		t.Fatalf("incident list = %d", len(tr.incidentList()))
 	}
-	if s := tr.summary(0.1); s.Total != 1 || s.Open != 0 || s.MTTRAvgMs != 5000 {
+	if s := tr.summary(0.1); s.Total != 1 || s.Open != 0 || s.MTTRAvgMs != 4000 {
 		t.Fatalf("summary salah: %+v", s)
 	}
 }

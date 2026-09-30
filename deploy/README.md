@@ -45,12 +45,14 @@ agregat dari metrik nyata (rider-sim `/internal/metrics` → p50/p95 delivery,
 p99 dispatch, utilisation, cost/order; counters pipeline → lag/backlog; chaos
 `/incidents` → MTTD/MTTR/error budget) + SLO eksplisit + grid healthz (cache
 2 s). Chaos injector :4206 (internal, profile `chaos`) — `POST /api/chaos/kill
-{"target":"rider-sim"}` SIGKILL container dari **allowlist eksplisit 7 service
+{"target":"rider-sim"}` = SIGKILL PID 1 di dalam container (exec API — endpoint
+`/kill` Docker TIDAK memicu restart policy) dari **allowlist eksplisit 7 service
 stateless `lastmile-*`** (postgres/redis/redpanda/chaos sendiri DI LUAR
 allowlist; container lain DITOLAK 403). Pemulihan = restart policy
 `unless-stopped` Docker (self-heal yang diukur — chaos tidak restart manual).
 Incident {t_start, t_detect, t_recover} persist ke volume `chaos_data`
 (`incidents.json`); MTTD = t_detect−t_start, MTTR = t_recover−t_detect.
+Monitor 1 Hz + flap suppression 2 kegagalan beruntun (probe timeout 1,5 s).
 
 ## 2. Blok Port (terdaftar di /home/rico/PORTS.md)
 

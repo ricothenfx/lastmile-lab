@@ -9,11 +9,14 @@
 //   - Allowlist EKSPLISIT tujuh service stateless `lastmile-*` di bawah —
 //     tanpa wildcard. Infra ber-state (postgres/redis/redpanda), chaos itu
 //     sendiri, dan semua container di luar project TIDAK PERNAH disentuh.
-//   - Kill = `docker kill` (SIGKILL) via socket Docker; PEMULIHAN diserahkan
-//     ke restart policy `unless-stopped` Docker (self-heal), chaos tidak
-//     pernah me-restart manual — yang diukur justru kemampuan self-heal.
-//   - Monitor 1 Hz /healthz per target membuka & menutup incident:
-//     MTTD = t_detect − t_start, MTTR = t_recover − t_detect (unix ms).
+//   - Kill = SIGKILL ke PID 1 DI DALAM container via Docker exec API
+//     (perintah fixed `kill -9 1`). Endpoint `/containers/{id}/kill` Docker
+//     29 sengaja TIDAK dipakai: ia tidak memicu restart policy (terverifikasi
+//     di VPS), sedangkan crash PID 1 dari dalam ya — self-heal via restart
+//     policy `unless-stopped` adalah perilaku yang justru diukur; chaos tidak
+//     pernah me-restart manual.
+//   - Monitor 1 Hz + flap suppression 2 kegagalan beruntun membuka & menutup
+//     incident: MTTD = t_detect − t_start, MTTR = t_recover − t_detect (unix ms).
 package main
 
 import (
@@ -55,6 +58,12 @@ var allowlistTargets = []chaosTarget{
 	{Name: "dispatch-consumer", Container: "lastmile-dispatch-consumer", HealthURL: "http://dispatch-consumer:4203/healthz"},
 	{Name: "strategy-lab", Container: "lastmile-strategy-lab", HealthURL: "http://strategy-lab:4205/healthz"},
 }
+
+// failThreshold = kegagalan healthz beruntun sebelum incident "health"
+// dibuka (flap suppression — satu probe timeout saat load host tinggi
+// bukan outage). Incident chaos-kill tidak lewat ambang ini (kill sudah
+// diterbitkan eksplisit).
+const failThreshold = 2
 
 func targetByName(name string) (chaosTarget, bool) {
 	for _, t := range allowlistTargets {
@@ -113,6 +122,7 @@ type targetState struct {
 	open          *Incident
 	lastProbeOK   bool
 	lastProbeAt   time.Time
+	failStreak    int
 }
 
 func newTracker(period time.Duration, now func() time.Time) *tracker {
@@ -141,6 +151,7 @@ func (tr *tracker) probe(name string, ok bool) *Incident {
 	now := tr.now()
 	st.lastProbeOK, st.lastProbeAt = ok, now
 	if ok {
+		st.failStreak = 0
 		if st.open != nil {
 			// pulih. Bila t_detect belum terisi (restart lebih cepat dari
 			// probe — kasus langka), deteksi & pemulihan dianggap bersamaan.
@@ -161,13 +172,20 @@ func (tr *tracker) probe(name string, ok bool) *Incident {
 		return nil // belum pernah hidup → standby (pipeline mati), bukan incident
 	}
 	if st.open == nil {
+		// Flap suppression: butuh N kegagalan beruntun sebelum incident
+		// dibuka — satu probe timeout saat load host tinggi bukan outage.
+		st.failStreak++
+		if st.failStreak < failThreshold {
+			st.healthy = false
+			return nil
+		}
 		st.open = &Incident{
 			ID:      newIncidentID(now, name),
 			Target:  name,
 			Kind:    "health",
 			TStart:  st.lastHealthyAt.UnixMilli(),
 			TDetect: now.UnixMilli(),
-			Detail:  "healthz gagal (monitor " + tr.period.String() + ")",
+			Detail:  "healthz gagal " + strconv.Itoa(failThreshold) + "× beruntun (monitor " + tr.period.String() + ")",
 		}
 		tr.push(st.open)
 	} else if st.open.TDetect <= 0 {
@@ -384,21 +402,49 @@ func (d *dockerClient) inspectRunning(container string) (bool, error) {
 	return st.State.Running, nil
 }
 
-// kill mengirim SIGKILL — container keluar non-zero → restart policy
-// `unless-stopped` Docker yang memulihkannya (self-heal yang diukur).
+// kill mengirim SIGKILL ke PID 1 DI DALAM container via Docker exec API.
+//
+// PENTING (perilaku Docker 25+ di host ini terverifikasi): endpoint
+// `/containers/{id}/kill` TIDAK memicu restart policy — container dianggap
+// dihentikan manual dan `unless-stopped` membiarkannya mati. Crash PID 1
+// dari dalam container justru memicu restart policy sungguhan (self-heal
+// yang mau diukur) sekaligus lebih otentik sebagai kegagalan proses.
+// Perintah exec FIXED (`kill -9 1`) — bukan pintu exec arbitrer.
 func (d *dockerClient) kill(container string) error {
+	b := strings.NewReader(`{"AttachOutput":false,"Cmd":["/bin/sh","-c","kill -9 1"]}`)
 	req, err := http.NewRequest(http.MethodPost,
-		"http://docker/containers/"+container+"/kill?signal=SIGKILL", nil)
+		"http://docker/containers/"+container+"/exec", b)
 	if err != nil {
 		return err
 	}
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := d.c.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("docker kill: HTTP %d", resp.StatusCode)
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("docker exec create: HTTP %d", resp.StatusCode)
+	}
+	var created struct {
+		ID string `json:"Id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil || created.ID == "" {
+		return fmt.Errorf("docker exec create: decode")
+	}
+	startReq, err := http.NewRequest(http.MethodPost,
+		"http://docker/exec/"+created.ID+"/start", strings.NewReader(`{"Detach":true}`))
+	if err != nil {
+		return err
+	}
+	startReq.Header.Set("Content-Type", "application/json")
+	startResp, err := d.c.Do(startReq)
+	if err != nil {
+		return err
+	}
+	defer startResp.Body.Close()
+	if startResp.StatusCode != http.StatusOK && startResp.StatusCode != http.StatusNoContent {
+		return fmt.Errorf("docker exec start: HTTP %d", startResp.StatusCode)
 	}
 	return nil
 }

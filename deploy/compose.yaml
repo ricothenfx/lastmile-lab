@@ -237,9 +237,11 @@ services:
 
   # ---- Fase 4: chaos injector + Incident Timeline (profile `chaos`) ----
   # Hanya service stateless lastmile-* yang bisa di-kill (allowlist ketat di
-  # kode, ADR D19). Pemulihan = restart policy unless-stopped Docker; chaos
-  # tidak pernah restart manual. Mount docker.sock = satu-satunya service
-  # lastmile dengan hak itu (root disengaja, lihat Dockerfile).
+  # kode, ADR D19): SIGKILL PID 1 via Docker exec API — endpoint /kill Docker
+  # TIDAK memicu restart policy (terverifikasi Docker 29), crash PID 1 dari
+  # dalam container ya. Pemulihan = restart policy unless-stopped Docker;
+  # chaos tidak pernah restart manual. Mount docker.sock = satu-satunya
+  # service lastmile dengan hak itu (root disengaja, lihat Dockerfile).
   # Incident persist di volume chaos_data (incidents.json).
   chaos:
     image: ghcr.io/ricothenfx/lastmile-chaos:${LASTMILE_IMAGE_TAG:-latest}
@@ -252,7 +254,7 @@ services:
       DOCKER_SOCK: /var/run/docker.sock
       DATA_DIR: /data
       PROBE_PERIOD_MS: "1000"
-      PROBE_TIMEOUT_MS: "700"
+      PROBE_TIMEOUT_MS: "1500"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - chaos_data:/data
