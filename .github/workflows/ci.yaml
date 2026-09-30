@@ -25,7 +25,8 @@ jobs:
             deploy/README.md \
             deploy/compose.yaml \
             deploy/caddy/lastmile-lab.caddy \
-            apps/web/index.html \
+            apps/services/go.mod \
+            apps/web/package.json \
             .github/workflows/ci.yaml; do
             test -f "$f" || { echo "MISSING: $f"; exit 1; }
             echo "ok  $f"

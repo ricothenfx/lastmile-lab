@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface-base text-ink-primary font-ui antialiased;
+  overscroll-behavior: none;
+}
+
+/* MapLibre chrome disesuaikan token — tanpa hex baru. */
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  background: color-mix(in srgb, var(--bg-raised) 85%, transparent);
+}
+.maplibregl-ctrl-attrib,
+.maplibregl-ctrl-attrib a {
+  color: var(--text-secondary);
+}
+.maplibregl-ctrl-attrib-button {
+  filter: invert(0.8);
+}
+.maplibregl-canvas {
+  outline: none;
+}
+
+/* Hormati prefers-reduced-motion untuk semua animasi CSS. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
