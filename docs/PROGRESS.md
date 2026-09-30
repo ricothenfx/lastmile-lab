@@ -5,18 +5,18 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** 3 — Dispatch engine 4 strategi + Strategy Lab
-  (spec: `docs/PHASES/phase-03.md`)
-- **Kondisi:** Fase 2 SELESAI — pipeline order lengkap (ingestion idempotent →
-  Redpanda → dispatch-consumer → rider-sim `ORDER_SOURCE=pipeline|internal`),
-  Surge Console live (< 1 s), load test spike ×10 zero message loss
-  (`reports/phase-02-loadtest.md`), RAM stack 280 MiB aktual / 1.536 MiB limit.
-  7 image backend di GHCR. VPS berjalan dalam **mode demo** (profile `sim`,
-  generator internal — pipeline hidup kapan pun lewat perintah di
-  `deploy/README.md §4.1`).
-- **Langkah berikutnya:** kick-off Fase 3 (baca AGENTS → PROGRESS → ROADMAP →
-  `PHASES/phase-03.md`), mulai dari interface Strategy di `pkg/dispatch` yang
-  sudah siap diisi Batching/Zone/Optimal.
+- **Fase aktif:** 4 — KPI Command Deck + System Health + chaos
+  (spec: `docs/PHASES/phase-04.md`)
+- **Kondisi:** Fase 3 SELESAI — 4 strategi dispatch deterministik di `pkg/dispatch`
+  (FIFO baseline + Batching/Zone/Optimal Hungarian murni Go, ADR D17), p99 keputusan
+  **2,6–13,1 ms** @ 100×100 (target < 50 ms, `reports/phase-03-bench.md`), Strategy
+  Lab duel A/B adil (satu generator → dua engine, ADR D18) via service
+  `strategy-lab` (:4205 internal) + API `/api/lab/*` + panel UI (peta kembar,
+  tabel delta, histogram bin bersama, export JSON). 8 image backend di GHCR.
+  VPS berjalan mode demo (profile `sim`), strategy-lab healthy.
+- **Langkah berikutnya:** kick-off Fase 4 (baca AGENTS → PROGRESS → ROADMAP →
+  `PHASES/phase-04.md`): KPI Command Deck + System Health + chaos injector;
+  tinjau keputusan Grafana/Prometheus (D16) di awal fase.
 - **Blokir/tergantung user:** none untuk koding. GO-LIVE publik tetap langkah
   pemilik domain/akun (DNS `ws.`/`api.` → IP VPS; auth Vercel) — bukan blokir fase.
 
@@ -30,13 +30,62 @@
 3. **Vercel:** import repo (root dir `apps/web`), set env `NEXT_PUBLIC_WS_URL=
    wss://ws.lastmile-lab.ricothen.com/ws` & `NEXT_PUBLIC_API_URL=https://api.lastmile-
    lab.ricothen.com`, lalu domain custom. Frontend tanpa WS → otomatis replay mode
-   (tidak pernah putih). Surge Console otomatis ikut via `api.` yang sama.
+   (tidak pernah putih). Surge Console + Strategy Lab otomatis ikut via `api.` yang sama.
 4. **Verifikasi 60fps di laptop fisik** (kriteria DoD fase 1 — terpenuhi secara
    struktural; angka final di hardware target): buka app → DevTools Performance →
-   CPU 4× throttle → rekam 15 s → harapkan p50 frame ≤ 16,7 ms. Fase 2 menambah
-   panel Surge Console DOM kecil tanpa rAF baru — budget draw canvas berubah.
+   CPU 4× throttle → rekam 15 s → harapkan p50 frame ≤ 16,7 ms. Fase 3 menambah dua
+   canvas lab kecil yang render ON-DEMAND (tanpa rAF saat idle) — budget idle
+   tidak berubah; playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-09-30 — Fase 3: Dispatch 4 strategi + Strategy Lab (sesi 4)
+
+- **4 strategi deterministik** di `pkg/dispatch` di belakang `Strategy.Assign`
+  yang sama, TANPA refactor engine (ADR D17): `fifo` (baseline, utuh);
+  `batching` (window stateless 2 s dari `OrderView.NowMs` baru — field OPSIONAL,
+  kontrak lama aman — lalu kluster per grid pickup, oldest-first dalam kluster);
+  `zone` (grid 0,01° + cincin tetangga 1–2 + fallback global, locality bias);
+  `optimal` (bipartite min-cost, Hungarian/Jonker-Volgenant murni Go O(n²m) —
+  DILARANG OR-Tools/CGO; diverifikasi brute-force permutasi). Semua punya
+  `Reason` + determinisme diuji. Registry `dispatch.ByName` dipakai rider-sim &
+  dispatch-consumer via env `DISPATCH_STRATEGY` (default `fifo` — demo lama utuh).
+- **p99 dispatch < 50 ms TERCATAT** (`reports/phase-03-bench.md` §3):
+  batching 2,56 · fifo 3,05 · optimal 13,14 · zone 5,51 ms pada 100 order + 100
+  rider (cap `--cpus 1`, GOMAXPROCS=1, host loadavg 9,5 — kondisi terburuk).
+  Headroom 3× beban: optimal mulai mahal (p99 303 ms @ 300×300) — batas aman
+  didokumentasikan.
+- **Duel engine adil** (`internal/duel`, ADR D18): SATU generator order (seed sama)
+  mem-pipe tiap order ke DUA engine identik per tick via `InjectExternal` — bukan
+  dua generator terpisah; determinisme antar-run diuji (DeepEqual). Metrik engine
+  baru (delivery dur, km on-task, rider-ms busy) via `sim.Engine.Metrics()` —
+  kontrak `model.Snapshot` TIDAK disentuh sama sekali.
+- **strategy-lab service** (:4205, internal saja): `POST /api/lab/run` → async
+  (satu duel bersamaan, 409 bila sibuk), `GET /api/lab/results[/{id}]` (ringkasan
+  + penuh: metrik, histogram bin bersama, ≤600 frame replay/sisi), `/healthz`;
+  in-memory maks 8 hasil + persist opsional `LAB_DATA_DIR`; api-gateway proxy
+  `/api/lab/*`. Duel 600 s virtual ≈ 1,4 s wall.
+- **Angka duel first-class** (rush 45 order/menit, 600 s, seed 42): optimal
+  delivered 255 vs FIFO 129 (+98%), expired 27 vs 46, cost/order 0,93 vs 2,04 km
+  (−54%). Steady (70% kapasitas): semua strategi identik — pelajaran: pilihan
+  strategi berbayar hanya di bawah tekanan. Batching: p50 −18% tapi expiry +48%
+  (window vs TTL). Cost/order DIDEFINISIKAN eksplisit: km on-task per order
+  terkirim, 1 unit = 1 km (laporan §1).
+- **UI Strategy Lab** (kriteria pemblokir terpenuhi, `reports/phase-03-ui-*.png`):
+  panel + form duel, tabel delta mono tabular (arah Δ diwarnai), histogram overlay
+  bin bersama, peta replay KEMBAR 2 canvas kecil (latar jalan di-prerender,
+  render on-demand — tanpa rAF saat idle), playback rAF berhenti sendiri,
+  EXPORT JSON per duel, reduced-motion = frame akhir statis. Verifikasi headless
+  Playwright: 0 console error. Bug ditemukan & diperbaiki saat verifikasi: polling
+  duel tidak pernah start (effect deps pakai ref → diganti state), marker verifikasi
+  salah cocok ticker TopBar, Legend tertimpa panel tinggi (disembunyikan saat lab
+  terbuka), preset awal terlalu ringan (retune 20/30/45 order/menit — kapasitas
+  armada 100 rider terukur ±25–30/menit).
+- **CI/CD**: images GHCR +1 (total 8, termasuk `lastmile-strategy-lab`); gofmt/vet/
+  test/race hijau; web typecheck+build hijau. Ram stack 1.792 MiB limit ≤ 2 GB
+  (strategy-lab 256 MiB, aktual ~7 MiB).
+- Stack VPS tetap mode demo (profile `sim`) — image baru di-pull, strategy-lab
+  healthy, tidak ada stack lain yang disentuh.
 
 ### 2026-09-30 — Fase 2: Order ingestion + loadgen + Surge Console (sesi 3)
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { MotionConfig, useReducedMotion } from 'framer-motion';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import Legend from './Legend';
 import LiveMap, { type LiveStreamRef } from './LiveMap';
 import ReplayBanner from './ReplayBanner';
@@ -13,6 +13,7 @@ import { useOpsStream } from '@/lib/useOpsStream';
 export default function OpsApp() {
   const stream = useOpsStream();
   const reduced = useReducedMotion() ?? false;
+  const [labOpen, setLabOpen] = useState(false);
 
   // Ref stabil untuk loop render canvas (tanpa re-mount map tiap render React).
   const streamRef = useRef<LiveStreamRef>({
@@ -41,8 +42,8 @@ export default function OpsApp() {
               </p>
             </div>
           )}
-          <Legend />
-          <StrategyLab />
+          {!labOpen && <Legend />}
+          <StrategyLab onOpenChange={setLabOpen} />
           <SurgeConsole mode={stream.mode} stats={stream.stats} />
           <footer className="pointer-events-none absolute bottom-4 right-16 z-10 hidden md:block">
             <p className="text-[11px] text-ink-secondary">

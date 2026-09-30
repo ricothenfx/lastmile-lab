@@ -42,20 +42,29 @@ try {
   await page.getByRole('button', { name: 'RUN', exact: true }).click();
   log('run_accepted_ms', Date.now() - t0);
 
-  // polling sampai hasil done di UI (tabel METRIC muncul)
-  await page.waitForFunction(
-    () => document.body.innerText.includes('DELIVERED'),
-    null, { timeout: 120000 },
-  );
+  // polling sampai tabel delta (hasil) muncul di panel — marker unik:
+  // tabel hasil, BUKAN ticker TopBar (label "Delivered" di-uppercase CSS).
+  await page.waitForSelector('aside[aria-label="Strategy Lab"] table', { timeout: 60000 });
   log('duel_done_total_ms', Date.now() - t0);
 
-  // hasil duel via API sama-sama done (konsistensi UI ↔ backend)
+  // hasil duel via API sama-sama done (konsistensi UI ↔ backend); tunggu
+  // tak ada duel berjalan agar tidak race dengan polling UI.
+  await page.waitForFunction(
+    async (url) => {
+      const list = (await (await fetch(url + '/results')).json()).results ?? [];
+      return list.length > 0 && list.every((s) => s.status !== 'running');
+    }, LAB, { timeout: 30000, polling: 1000 },
+  );
   const listRes = await fetch(`${LAB}/results`);
   const list = (await listRes.json()).results ?? [];
   log('api_results_count', list.length);
   log('api_latest', `${list[0]?.strategy_a}/${list[0]?.strategy_b} ${list[0]?.status}`);
 
-  // peta kembar: dua canvas dengan piksel non-kosong
+  // peta kembar: tunggu canvas results terpasang, lalu cek piksel non-kosong
+  await page.waitForFunction(
+    () => document.querySelectorAll('aside[aria-label="Strategy Lab"] canvas').length >= 3,
+    null, { timeout: 15000 },
+  );
   const canvases = await page.$$eval('aside[aria-label="Strategy Lab"] canvas', (cs) =>
     cs.map((c) => {
       const ctx = c.getContext('2d');
@@ -101,19 +110,23 @@ try {
   // export JSON tersedia (blob download — cukup cek tombolnya ada)
   log('export_button', (await page.getByRole('button', { name: /EXPORT JSON/ }).count()) === 1 ? 'ada' : 'HILANG');
 
-  // reduced motion: buka panel → hasil tetap tampil, tombol PLAY disembunyikan
+  // reduced motion: muat duel tersimpan dari riwayat → hasil tetap tampil,
+  // tombol PLAY disembunyikan (frame akhir statis, tanpa playback)
   const ctx2 = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
   const p2 = await ctx2.newPage();
   p2.on('pageerror', (e) => consoleErrors.push('RM: ' + String(e)));
   await p2.goto(BASE, { waitUntil: 'domcontentloaded' });
   await p2.waitForFunction(() => document.body.innerText.includes('LIVE LINK'), null, { timeout: 20000 });
   await p2.getByRole('button', { name: /Strategy Lab/i }).click();
-  await p2.waitForSelector('select[aria-label="Strategi A"]', { timeout: 5000 });
-  // muat hasil terakhir dari riwayat
-  await p2.waitForFunction(() => document.querySelectorAll('aside[aria-label="Strategy Lab"] select[aria-label="Riwayat duel"] option').length > 0, null, { timeout: 10000 });
+  const histSel = p2.locator('select[aria-label="Muat duel tersimpan"]');
+  await histSel.waitFor({ state: 'visible', timeout: 10000 });
+  const firstDone = await histSel.locator('option').nth(1).getAttribute('value');
+  await histSel.selectOption(firstDone);
+  await p2.waitForSelector('aside[aria-label="Strategy Lab"] table', { timeout: 15000 });
   const rmHasPlay = await p2.getByRole('button', { name: /PLAY/ }).count();
-  log('reduced_motion_play_hidden', rmHasPlay === 0 ? 'YA (frame statis)' : 'TIDAK');
-  await p2.screenshot({ path: '/tmp/kilo/phase03-lab-reduced.png' });
+  const rmCanvases = await p2.$$eval('aside[aria-label="Strategy Lab"] canvas', (cs) => cs.length);
+  log('reduced_motion', `hasil statis dimuat (canvas=${rmCanvases}), PLAY ${rmHasPlay === 0 ? 'TERSEMBUNYI' : 'MUNCUL'}`);
+  await p2.screenshot({ path: '/out/phase03-lab-reduced.png' });
   await ctx2.close();
 
   log('console_errors', consoleErrors.length === 0 ? '0' : JSON.stringify(consoleErrors));

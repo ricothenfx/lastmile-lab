@@ -11,7 +11,7 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 | 0 | Bootstrap repo, docs, CI, deploy skeleton | ✅ |
 | 1 | Simulasi inti + Live Ops Map | ✅ |
 | 2 | Order ingestion + load generator + Surge Console dasar | ✅ |
-| 3 | Dispatch engine 4 strategi + Strategy Lab | ⬜ |
+| 3 | Dispatch engine 4 strategi + Strategy Lab | ✅ |
 | 4 | KPI Command Deck + System Health + chaos | ⬜ |
 | 5 | Replay engine + Golden Demo presets + polish motion | ⬜ |
 | 6 | Hardening produksi + monitoring + README story + artikel | ⬜ |
@@ -66,14 +66,23 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 
 ## Fase 3 — Dispatch engine + Strategy Lab
 
-**DoD:**
-- [ ] 4 strategi: FIFO, Batching, Zone-based, Optimal (Hungarian/OR-Tools)
-- [ ] p99 keputusan dispatch terukur < 50 ms pada beban target
-- [ ] Strategy Lab: A vs B skenario identik → peta replay kembar + tabel delta +
-      histogram overlay
-- [ ] Export benchmark report (dipakai di README)
-- [ ] Angka delta first-class: delivery time, utilization, cost/order
-- [ ] Commit & push
+**DoD:** (bukti angka: `reports/phase-03-bench.md` + `reports/phase-03-ui-*.png`)
+- [x] 4 strategi: FIFO, Batching, Zone-based, Optimal (Hungarian murni Go — ADR D17;
+      semua deterministik + reason; unit test urutan/keunikan/brute-force JV)
+- [x] p99 keputusan dispatch < 50 ms pada beban target — terukur **2,6–13,1 ms**
+      @ 100 order + 100 rider, cap 1 CPU, host load 9+ (semua strategi)
+- [x] Strategy Lab: A vs B skenario identik (SATU generator seed sama → dua engine)
+      → peta replay kembar + tabel delta + histogram overlay bin bersama
+- [x] Export benchmark report (file di `reports/`, format dipakai README nanti;
+      UI juga punya EXPORT JSON per duel)
+- [x] Angka delta first-class: delivery time p50/p95, utilization, cost/order
+      (definisi eksplisit di laporan §1) — mis. rush 600 s: optimal delivered +98%,
+      cost/order −54% vs FIFO
+- [x] Kualitas UI: token-only, mono tabular, kontras AA, reduced-motion, canvas
+      on-demand tanpa rAF idle (bukti headless `phase-03-ui-verify.mjs`, error 0)
+- [x] Semua service/endpoint baru punya health + limit RAM (strategy-lab 256 MiB;
+      ram stack 1.792 MiB ≤ 2 GB) + CI hijau (ci + images)
+- [x] Commit & push
 
 ## Fase 4 — KPI Deck + System Health + chaos
 

@@ -32,7 +32,12 @@ const DURATIONS = [120, 300, 600] as const;
 
 type Phase = 'idle' | 'running' | 'done' | 'error';
 
-function StrategyLabImpl() {
+interface Props {
+  /** Beri tahu parent saat panel buka/tutup — Legend disembunyikan agar tak tertimpa. */
+  onOpenChange?: (open: boolean) => void;
+}
+
+function StrategyLabImpl({ onOpenChange }: Props) {
   const reduced = useReducedMotion() ?? false;
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
@@ -47,7 +52,7 @@ function StrategyLabImpl() {
   const [graph, setGraph] = useState<GraphJSON | null>(null);
   const [playIdx, setPlayIdx] = useState<number | null>(null);
   const [playing, setPlaying] = useState(false);
-  const runIdRef = useRef<string | null>(null);
+  const [runId, setRunId] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadGraph = useCallback(() => {
@@ -78,14 +83,14 @@ function StrategyLabImpl() {
   }, []);
 
   // Polling duel aktif — interval mati saat tidak ada duel berjalan.
+  // depend on runId (bukan ref): effect re-run saat POST selesai & id diketahui.
   useEffect(() => {
-    if (phase !== 'running' || !runIdRef.current) return;
-    const id = runIdRef.current;
+    if (phase !== 'running' || !runId) return;
     const tick = async () => {
       try {
         const list = await fetchLabResults();
         setSummaries(list);
-        const mine = list.find((s) => s.id === id);
+        const mine = list.find((s) => s.id === runId);
         if (!mine) return;
         if (mine.status === 'running') {
           setProgress(mine.progress_pct);
@@ -93,7 +98,7 @@ function StrategyLabImpl() {
         }
         if (pollRef.current) clearInterval(pollRef.current);
         pollRef.current = null;
-        showResult(await fetchLabResult(id));
+        showResult(await fetchLabResult(runId));
       } catch (err) {
         if (pollRef.current) clearInterval(pollRef.current);
         pollRef.current = null;
@@ -107,7 +112,7 @@ function StrategyLabImpl() {
       if (pollRef.current) clearInterval(pollRef.current);
       pollRef.current = null;
     };
-  }, [phase, showResult]);
+  }, [phase, runId, showResult]);
 
   const run = useCallback(async () => {
     setPhase('running');
@@ -120,7 +125,7 @@ function StrategyLabImpl() {
       setErrorMsg(out.error ?? 'lab tidak terjangkau');
       return;
     }
-    runIdRef.current = out.id;
+    setRunId(out.id);
   }, [preset, seconds, stratA, stratB]);
 
   const loadExisting = useCallback(
@@ -195,7 +200,11 @@ function StrategyLabImpl() {
       <button
         type="button"
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          const next = !open;
+          setOpen(next);
+          onOpenChange?.(next);
+        }}
         className="flex w-full items-center justify-between px-4 py-2.5"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">
@@ -297,6 +306,28 @@ function StrategyLabImpl() {
             <p className="mt-2 font-mono text-[10px] leading-relaxed text-status-coral" role="alert">
               {errorMsg.toUpperCase()}
             </p>
+          )}
+
+          {/* riwayat duel tersimpan — bisa dimuat tanpa menjalankan duel baru */}
+          {!result && summaries.some((s) => s.status !== 'running') && (
+            <select
+              aria-label="Muat duel tersimpan"
+              value=""
+              onChange={(e) => void loadExisting(e.target.value)}
+              disabled={running}
+              className="mt-1.5 w-full rounded-input border border-line-subtle bg-surface-overlay px-2 py-1.5 font-mono text-[11px] text-ink-primary disabled:opacity-40"
+            >
+              <option value="">
+                RIWAYAT ({summaries.filter((s) => s.status !== 'running').length})
+              </option>
+              {summaries
+                .filter((s) => s.status !== 'running')
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.id} · {s.strategy_a}/{s.strategy_b} · {s.preset}
+                  </option>
+                ))}
+            </select>
           )}
 
           {/* hasil */}

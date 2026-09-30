@@ -108,7 +108,22 @@ docker run --rm -v "$PWD":/src -w /src golang:1.26-alpine go test ./...
 
 ## 7. UI Strategy Lab (kriteria pemblokir — verifikasi headless)
 
-Diverifikasi via Playwright headless di VPS setelah deploy image (lihat
-`reports/phase-03-ui-verify.mjs` + screenshot): token-only colors, angka mono
-tabular, dua canvas render on-demand (tanpa rAF saat idle), reduced-motion =
-frame akhir statis, duel end-to-end dari UI.
+Diverifikasi Playwright headless di VPS (container `mcr.microsoft.com/playwright`,
+`--network host`) setelah deploy image, skrip `reports/phase-03-ui-verify.mjs`:
+
+| Cek | Hasil |
+|---|---|
+| Mode + panel | LIVE LINK; panel Strategy Lab terbuka |
+| Duel end-to-end dari UI | RUN dikirim 297–585 ms; tabel delta muncul (polling ≤ 2,5 s) |
+| Konsistensi UI ↔ API | `GET /api/lab/results` terbaru `done`, tanpa entry menggantung |
+| Canvas ter-render (on-demand) | 3/3 canvas berpiksel: histogram 318×92 + peta kembar 2×153×118 |
+| Playback | ▶ PLAY berjalan lalu **berhenti sendiri** di frame akhir (label tengah T+36/120S); tanpa rAF saat idle |
+| Export | tombol EXPORT JSON ada (unduh hasil duel `phase3-duel-{id}.json`) |
+| Reduced motion | hasil dimuat statis dari riwayat, tombol PLAY disembunyikan, canvas tetap tergambar |
+| Console error | **0** |
+| Bukti visual | `phase-03-ui-result.png`, `phase-03-ui-final.png`, `phase-03-ui-reduced.png` |
+
+Catatan: peta Live Ops latar tampak gelap di container headless (WebGL software) —
+keterbatasan lingkungan uji yang sama dengan Fase 1–2; canvas overlay lab tetap
+terverifikasi tergambar penuh. Angka 60fps final di laptop fisik tetap berstatus
+langkah sisa (prosedur di PROGRESS.md).
