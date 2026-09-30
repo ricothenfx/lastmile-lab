@@ -98,6 +98,18 @@ type Engine struct {
 	taskDistM     float64
 	busyMs        int64
 
+	// Ring KPI live (Fase 4): durasi delivery & dispatch terakhir (fixed-cap,
+	// tanpa pertumbuhan memori). Reinstrumentasi wall-clock — TIDAK masuk RNG
+	// maupun logika dispatch, jadi determinisme same-seed tetap terjaga.
+	deliveryRing    [KPIRingCap]int64 // ms created→delivered
+	deliveryRingIdx int
+	deliveryRingN   uint64
+	dispatchRing    [KPIRingCap]int64 // ns wall-clock per panggilan Strategy.Assign
+	dispatchRingIdx int
+	dispatchRingN   uint64
+	dispatchTotalNs int64
+	dispatchCalls   uint64
+
 	// Kontrol live (Surge Console, Fase 2) — clamp di SetControls.
 	surgeFactor   float64
 	weatherFactor float64
@@ -243,6 +255,9 @@ func (e *Engine) advanceRider(r *rider, dtS float64) {
 		if e.nowMs >= r.dwellUntilMs { // selesai antar
 			if o := e.activeOrder(r.orderID); o != nil {
 				e.deliveredDurs = append(e.deliveredDurs, e.nowMs-o.createdMs)
+				e.deliveryRing[e.deliveryRingIdx] = e.nowMs - o.createdMs
+				e.deliveryRingIdx = (e.deliveryRingIdx + 1) % KPIRingCap
+				e.deliveryRingN++
 			}
 			e.delivered++
 			e.removeOrder(r.orderID)
@@ -370,7 +385,13 @@ func (e *Engine) dispatch() {
 		return
 	}
 
-	for _, a := range e.strategy.Assign(ov, rv) {
+	// Wall-clock instrumentation (Fase 4 KPI): diukur tapi tidak pernah
+	// memengaruhi keputusan — hasil Assign sama persis dengan tanpa pengukuran.
+	t0 := time.Now()
+	assignments := e.strategy.Assign(ov, rv)
+	e.recordDispatch(int64(time.Since(t0)))
+
+	for _, a := range assignments {
 		o := e.activeOrder(a.OrderID)
 		r := e.riderByID(a.RiderID)
 		if o == nil || r == nil || o.status != model.OrderWaiting || r.status != model.RiderIdle {

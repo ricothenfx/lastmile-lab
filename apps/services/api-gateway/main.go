@@ -8,6 +8,8 @@
 //	GET  /api/control/state   nilai surge/weather aktif
 //	GET  /api/metrics         agregasi counters pipeline (JSON, Fase 2)
 //	*    /api/lab/*           → strategy-lab (Strategy Lab, Fase 3)
+//	GET  /api/kpi             KPI + SLO + grid + budget (Fase 4, kpi.go)
+//	*    /api/chaos/*         → chaos injector (Fase 4)
 package main
 
 import (
@@ -28,8 +30,10 @@ func main() {
 	controlURL := envStr("SIM_CONTROL_URL", "http://127.0.0.1:3013")
 	ingestionURL := envStr("ORDER_INGESTION_URL", "http://127.0.0.1:4202")
 	consumerURL := envStr("DISPATCH_CONSUMER_URL", "http://127.0.0.1:4203")
+	wsURL := envStr("WS_GATEWAY_URL", "")   // kosong = grid ws-gateway standby
 	loadgenURL := envStr("LOADGEN_URL", "") // hanya saat loadtest — kosong = skip
 	labURL := envStr("LAB_URL", "")         // kosong = /api/lab/* → 503 (lab opsional)
+	chaosURL := envStr("CHAOS_URL", "")     // kosong = /api/chaos/* → 503 (chaos opsional)
 	client := &http.Client{Timeout: 4 * time.Second}
 
 	var simMu sync.Mutex
@@ -143,6 +147,100 @@ func main() {
 		io.Copy(w, resp.Body)
 	}
 
+	// proxy chaos: sama polanya dengan lab (Fase 4).
+	proxyChaos := func(w http.ResponseWriter, r *http.Request) {
+		if chaosURL == "" {
+			http.Error(w, `{"error":"chaos_disabled"}`, http.StatusServiceUnavailable)
+			return
+		}
+		target := chaosURL + strings.TrimPrefix(r.URL.Path, "/api/chaos")
+		req, err := http.NewRequestWithContext(r.Context(), r.Method, target, r.Body)
+		if err != nil {
+			http.Error(w, `{"error":"bad request"}`, http.StatusBadRequest)
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, `{"error":"chaos unreachable"}`, http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(resp.StatusCode)
+		io.Copy(w, resp.Body)
+	}
+
+	// /api/kpi — KPI agregat + SLO + grid + error budget (Fase 4, kpi.go).
+	// Semua upstream diambil paralel; payload di-cache 400 ms agar polling
+	// UI 2 Hz tidak menghajar service internal.
+	var agg kpiAggregator
+	gridCache := &sync.Map{}
+	kpiHandler := func(w http.ResponseWriter, r *http.Request) {
+		now := time.Now()
+		if p, ok := agg.cached(now, 400*time.Millisecond); ok {
+			writeJSON(w, http.StatusOK, p)
+			return
+		}
+		var (
+			wg           sync.WaitGroup
+			eng          simEngineKPI
+			simOK        bool
+			ing, con     map[string]interface{}
+			ingOK, conOK bool
+			chaos        chaosIncidents
+			chaosOK      bool
+		)
+		fetch := func(url string, out interface{}, ok *bool) {
+			defer wg.Done()
+			*ok = fetchJSON(url, out)
+		}
+		wg.Add(4)
+		go fetch(simURL+"/internal/metrics", &struct {
+			Engine *simEngineKPI `json:"engine"`
+		}{&eng}, &simOK)
+		go fetch(ingestionURL+"/metrics", &ing, &ingOK)
+		go fetch(consumerURL+"/metrics", &con, &conOK)
+		if chaosURL != "" {
+			go fetch(chaosURL+"/incidents", &chaos, &chaosOK)
+		} else {
+			wg.Done()
+		}
+
+		var grid []gridNode
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			grid = probeGrid([]gridTarget{
+				{name: "rider-sim", group: "core", url: simURL},
+				{name: "ws-gateway", group: "core", url: wsURL},
+				{name: "api-gateway", group: "core", url: ""}, // self — selalu up dari sudut pandang handler
+				{name: "strategy-lab", group: "lab", url: labURL},
+				{name: "order-ingestion", group: "pipeline", url: ingestionURL},
+				{name: "dispatch-consumer", group: "pipeline", url: consumerURL},
+				{name: "sim-control", group: "pipeline", url: controlURL},
+				{name: "chaos", group: "chaos", url: chaosURL},
+			}, client, gridCache, 2*time.Second)
+		}()
+		wg.Wait()
+		for i := range grid { // self ditandai up (endpoint ini buktinya hidup)
+			if grid[i].Name == "api-gateway" {
+				grid[i].Status = "up"
+			}
+		}
+
+		resp := assembleKPI(kpiInput{
+			now: now, eng: eng, simReachable: simOK,
+			ing: ing, ingOK: ingOK, con: con, conOK: conOK,
+			chaos: &chaos, chaosReachable: chaosOK,
+			grid: grid,
+		})
+		// laju per menit perlu riwayat sampel — catat lalu hitung.
+		agg.store(resp, now)
+		resp.OrdersPerMin, resp.DelivPerMin = agg.rates(now)
+		writeJSON(w, http.StatusOK, resp)
+	}
+
 	mux := http.NewServeMux()
 	start := time.Now()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
@@ -157,11 +255,14 @@ func main() {
 	mux.HandleFunc("/api/snapshot", proxy("/api/snapshot"))
 	mux.HandleFunc("/api/graph", proxy("/api/graph"))
 	mux.HandleFunc("/api/metrics", metrics)
+	mux.HandleFunc("/api/kpi", kpiHandler)
 	mux.HandleFunc("/api/control/surge", proxyControl("/control/surge"))
 	mux.HandleFunc("/api/control/weather", proxyControl("/control/weather"))
 	mux.HandleFunc("/api/control/state", proxyControl("/state"))
 	mux.HandleFunc("/api/lab/", proxyLab)
 	mux.HandleFunc("/api/lab", proxyLab)
+	mux.HandleFunc("/api/chaos/", proxyChaos)
+	mux.HandleFunc("/api/chaos", proxyChaos)
 
 	handler := cors(mux)
 	addr := "0.0.0.0:" + port

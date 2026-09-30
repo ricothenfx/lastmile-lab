@@ -95,6 +95,15 @@ func main() {
 	mux.HandleFunc("/internal/state", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, engine.FullSnapshot())
 	})
+	// Metrik live KPI (Fase 4) — ring durasi delivery/dispatch + counters.
+	// Dipakai api-gateway /api/kpi; bukan bagian kontrak snapshot publik.
+	mux.HandleFunc("/internal/metrics", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"service": "rider-sim",
+			"ts_ms":   time.Now().UnixMilli(),
+			"engine":  engine.KPI(),
+		})
+	})
 	mux.HandleFunc("/api/snapshot", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, engine.FullSnapshot())
 	})

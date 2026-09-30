@@ -21,8 +21,9 @@ Internet
          │  3030 grafana (opsional) · 5434 postgres · 6380 redis  │
          │  4201 rider-sim · 4202 order-ingestion · 4203 dispatch │
          │  4204 loadgen (profile loadtest saja)                  │
-         │  4205 strategy-lab (Fase 3, internal network saja)     │
-         │  redpanda 19092 (internal network saja)                │
+          │  4205 strategy-lab (Fase 3, internal network saja)     │
+          │  4206 chaos (Fase 4, internal + docker.sock allowlist) │
+          │  redpanda 19092 (internal network saja)                │
          └────────────────────────────────────────────────────────┘
 ```
 
@@ -39,6 +40,18 @@ engine, strategi beda) — hasil metrik + histogram + frame replay kembar. Strat
 dispatch selectable per service via env `DISPATCH_STRATEGY`
 (`fifo|batching|zone|optimal`, default `fifo`).
 
+KPI + System Health + chaos (Fase 4): UI polling `GET /api/kpi` (2 Hz) — KPI
+agregat dari metrik nyata (rider-sim `/internal/metrics` → p50/p95 delivery,
+p99 dispatch, utilisation, cost/order; counters pipeline → lag/backlog; chaos
+`/incidents` → MTTD/MTTR/error budget) + SLO eksplisit + grid healthz (cache
+2 s). Chaos injector :4206 (internal, profile `chaos`) — `POST /api/chaos/kill
+{"target":"rider-sim"}` SIGKILL container dari **allowlist eksplisit 7 service
+stateless `lastmile-*`** (postgres/redis/redpanda/chaos sendiri DI LUAR
+allowlist; container lain DITOLAK 403). Pemulihan = restart policy
+`unless-stopped` Docker (self-heal yang diukur — chaos tidak restart manual).
+Incident {t_start, t_detect, t_recover} persist ke volume `chaos_data`
+(`incidents.json`); MTTD = t_detect−t_start, MTTR = t_recover−t_detect.
+
 ## 2. Blok Port (terdaftar di /home/rico/PORTS.md)
 
 | Port | Pemilik | Bind | Catatan |
@@ -52,6 +65,7 @@ dispatch selectable per service via env `DISPATCH_STRATEGY`
 | 4203 | dispatch-consumer | tidak dipublish | healthz/metrics internal |
 | 4204 | loadgen | tidak dipublish | hanya profile loadtest |
 | 4205 | strategy-lab | tidak dipublish | Fase 3 — duels via api-gateway /api/lab/* |
+| 4206 | chaos | tidak dipublish | Fase 4 — kill allowlist via api-gateway /api/chaos/*; profile `chaos` |
 | 5434 | lastmile-postgres | 127.0.0.1 | instance sendiri, BUKAN 5433 aviation |
 | 6380 | lastmile-redis | 127.0.0.1 | instance sendiri, BUKAN 6379 aviation |
 | 9091 | lastmile-prometheus (reserved) | 127.0.0.1 | Fase 4+ |
@@ -106,6 +120,18 @@ docker compose -p lastmile -f deploy/compose.yaml -f deploy/compose.pipeline.yam
   (perintah repro + kondisi hardware di §6 laporan).
 - Ganti strategi live demo: env `DISPATCH_STRATEGY` pada `rider-sim`/`dispatch-consumer`
   (override compose atau `docker compose -p lastmile --profile sim up -d` setelah edit).
+
+### 4.3 KPI + chaos (Fase 4)
+
+- Stack hidup dengan chaos: `docker compose -p lastmile --profile sim --profile chaos up -d`
+  (tanpa profile `chaos`, UI menampilkan chaos STANDBY — KPI tetap hidup).
+- KPI agregat: `curl localhost:3010/api/kpi` (SLO + grid + budget ikut di payload).
+- Chaos kill (HANYA target allowlist): `curl -s localhost:3010/api/chaos/kill
+  -X POST -d '{"target":"rider-sim"}'` → 202; timeline: `GET /api/chaos/incidents`.
+  Target di luar allowlist → 403. Eksperimen jangan saat load host > 8
+  (`cat /proc/loadavg` dulu) — bukti angka: `reports/phase-04-chaos.md`.
+- Kembali aman: `docker compose -p lastmile --profile sim up -d` (chaos mati).
+
 
 - Override `deploy/compose.pipeline.yaml` hanya mengubah `rider-sim` →
   `ORDER_SOURCE=pipeline`. Tanpa override itu, demo tetap internal.

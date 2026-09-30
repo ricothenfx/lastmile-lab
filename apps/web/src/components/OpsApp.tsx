@@ -2,18 +2,23 @@
 
 import { MotionConfig, useReducedMotion } from 'framer-motion';
 import { useRef, useState } from 'react';
+import KpiDeck from './KpiDeck';
 import Legend from './Legend';
 import LiveMap, { type LiveStreamRef } from './LiveMap';
 import ReplayBanner from './ReplayBanner';
 import StrategyLab from './StrategyLab';
 import SurgeConsole from './SurgeConsole';
+import SystemHealth from './SystemHealth';
 import TopBar from './TopBar';
+import { useKpi } from '@/lib/useKpi';
 import { useOpsStream } from '@/lib/useOpsStream';
 
 export default function OpsApp() {
   const stream = useOpsStream();
+  const kpiState = useKpi();
   const reduced = useReducedMotion() ?? false;
   const [labOpen, setLabOpen] = useState(false);
+  const [deckOpen, setDeckOpen] = useState(true);
 
   // Ref stabil untuk loop render canvas (tanpa re-mount map tiap render React).
   const streamRef = useRef<LiveStreamRef>({
@@ -28,7 +33,7 @@ export default function OpsApp() {
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex h-dvh min-h-[540px] flex-col bg-surface-base">
-        <TopBar mode={stream.mode} stats={stream.stats} />
+        <TopBar mode={stream.mode} stats={stream.stats} incidentsOpen={kpiState.kpi?.incidents_open ?? null} />
         <main className="relative min-h-0 flex-1 overflow-hidden">
           <LiveMap streamRef={streamRef} />
           <ReplayBanner visible={stream.mode === 'replay'} />
@@ -42,12 +47,14 @@ export default function OpsApp() {
               </p>
             </div>
           )}
-          {!labOpen && <Legend />}
+          {!labOpen && !deckOpen && <Legend />}
+          <KpiDeck kpiState={kpiState} onOpenChange={setDeckOpen} />
           <StrategyLab onOpenChange={setLabOpen} />
           <SurgeConsole mode={stream.mode} stats={stream.stats} />
-          <footer className="pointer-events-none absolute bottom-4 right-16 z-10 hidden md:block">
+          <SystemHealth kpiState={kpiState} />
+          <footer className="pointer-events-none absolute bottom-4 left-1/2 z-0 hidden -translate-x-1/2 min-[820px]:block">
             <p className="text-[11px] text-ink-secondary">
-              lastmile-lab · phase 3 · data © OpenStreetMap contributors
+              lastmile-lab · phase 4 · data © OpenStreetMap contributors
             </p>
           </footer>
         </main>
