@@ -104,7 +104,6 @@ function DemoLauncherImpl() {
 
         {open && (
           <div
-            role="menu"
             aria-label="Golden Demo presets"
             className="absolute bottom-[44px] left-1/2 z-30 w-[320px] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-panel border border-line-subtle bg-surface-raised/95 p-3 backdrop-blur"
           >
@@ -147,7 +146,6 @@ function DemoLauncherImpl() {
                   </span>
                   <button
                     type="button"
-                    role="menuitem"
                     disabled={offline || active || busy}
                     onClick={() => void play(p.id)}
                     className="shrink-0 rounded-input border border-accent-cyan/60 bg-accent-cyan/10 px-2.5 py-1 font-mono text-[10px] tracking-[0.08em] text-accent-cyan transition-colors duration-fast hover:bg-accent-cyan/20 disabled:cursor-not-allowed disabled:opacity-40"

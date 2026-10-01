@@ -282,10 +282,13 @@ func (d *demoRunner) loop(run *demoRun) {
 					run.stepStatus[next] = "ok"
 				}
 				d.mu.Unlock()
+				log.Printf("demo %s: langkah %d/%d t+%.1fs — %s [%s]",
+					run.preset.ID, next+1, len(run.preset.Steps), elapsed, s.Label, run.stepStatus[next])
 				next++
 			}
 			cancel()
 			if next >= len(run.preset.Steps) && elapsed >= run.preset.DurationSec {
+				log.Printf("demo %s: selesai t+%.1fs (durasi preset %.0fs)", run.preset.ID, elapsed, run.preset.DurationSec)
 				d.finish(run)
 				return
 			}

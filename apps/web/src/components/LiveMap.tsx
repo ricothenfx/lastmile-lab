@@ -408,6 +408,15 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
             ctx.stroke();
           }
         }
+
+        // Hook deterministik untuk verifikasi E2E (hanya saat override
+        // replay aktif — klik inspect): posisi px rider/order terakhir.
+        if (streamRef.current.onMapClick) {
+          (window as unknown as { __lmPick?: unknown }).__lmPick = {
+            riders: Array.from(pickData.riders.entries(), ([id, [x, y]]) => ({ id, x, y })).slice(0, 80),
+            orders: pickData.orders.slice(0, 80),
+          };
+        }
       };
 
       map.on('load', () => {
@@ -434,6 +443,10 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
     <div
       ref={containerRef}
       className="absolute inset-0"
+      // Inline (bukan utility): CSS maplibre (.maplibregl-map) mendefinisikan
+      // position: relative yang bisa menggeser urutan cascade di atas utility
+      // Tailwind — tanpa ini tinggi kontainer 0 dan peta tidak tergambar.
+      style={{ position: 'absolute' }}
       aria-label="Live Ops Map — Berlin"
       role="img"
     />

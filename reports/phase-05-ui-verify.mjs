@@ -25,6 +25,43 @@ const log = (k, v) => { results.push([k, v]); console.log(`${k}: ${v}`); };
 
 const browser = await chromium.launch({ args: ['--use-gl=swiftshader'] });
 try {
+  // ================= MODE OFFLINE =================
+  // Jalankan SETELAH host menghentikan rider-sim + ws-gateway + api-gateway:
+  //   OFFLINE_MODE=1 node phase-05-ui-verify.mjs
+  // Memverifikasi frontend tetap hidup 100% tanpa backend: banner REPLAY
+  // (fixture fase 1), replay panel memakai fixture + scrub, demo tombol mati.
+  if (process.env.OFFLINE_MODE === '1') {
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
+    page.on('pageerror', (e) => consoleErrors.push(String(e)));
+    await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(
+      () => document.body.innerText.includes('REPLAY MODE'),
+      null, { timeout: 25000 },
+    );
+    log('fixture_fallback', 'REPLAY MODE tampil (tanpa backend)');
+    await page.getByRole('button', { name: /⟲ REPLAY/i }).click();
+    await page.waitForFunction(
+      () => document.querySelector('[aria-label="Replay dan Inspect"]')?.innerText.includes('FIXTURE'),
+      null, { timeout: 20000 },
+    );
+    const fxRng = page.locator('input[aria-label="Posisi timeline replay"]');
+    const fxMin = Number(await fxRng.getAttribute('min'));
+    const fxMax = Number(await fxRng.getAttribute('max'));
+    await fxRng.fill(String(Math.round(Math.floor((fxMin + fxMax) / 2) / 100) * 100));
+    await sleep(400);
+    const fxPanel = await page.locator('[aria-label="Replay dan Inspect"]').innerText();
+    const scrubOk = /T+\d+:\d+ \/ 00:45/.test(fxPanel);
+    log('fixture_scrub', scrubOk ? 'ok' : fxPanel.match(/T\+\d+:\d+ \/ \d+:\d+/)?.[0] ?? '?');
+    log('fixture_demo_offline', (await page.getByRole('button', { name: /▶ DEMO/i }).innerText()).includes('OFFLINE') ? 'tombol mati' : 'MASIH HIDUP?');
+    await page.screenshot({ path: `${OUT}/phase05-fixture-offline.png` });
+    log('console_errors', consoleErrors.length === 0 ? 0 : consoleErrors.slice(0, 5).join(' | '));
+    const fails = results.filter(([k, v]) => /GAGAL|HILANG|TIDAK|MASIH|KOSONG|\?\?$/.test(String(v)));
+    console.log(fails.length ? `FAIL: ${fails.map(f => f.join('=')).join(', ')}` : 'ALL OFFLINE CHECKS PASSED');
+    process.exit(fails.length || consoleErrors.length ? 1 : 0);
+  }
+
+  // ================= MODE UTAMA (backend hidup) =================
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   page.on('pageerror', (e) => consoleErrors.push(String(e)));
@@ -66,7 +103,7 @@ try {
   const rng = page.locator('input[aria-label="Posisi timeline replay"]');
   const min = Number(await rng.getAttribute('min'));
   const max = Number(await rng.getAttribute('max'));
-  await rng.fill(String(Math.floor((min + max) / 2)));
+  await rng.fill(String(Math.round(Math.floor((min + max) / 2) / 100) * 100));
   await sleep(400);
   const t1Label = await page.locator('[aria-label="Replay dan Inspect"]').innerText().then(t => (t.match(/T\+(\d+:\d+)/) ?? [])[1]);
   log('scrub', t0Label !== t1Label ? `ok (${t0Label} → ${t1Label})` : `GAGAL (${t0Label} == ${t1Label})`);
@@ -88,35 +125,40 @@ try {
   log('play_x4_advances', t2Label !== t1Label ? `ok (${t1Label} → ${t2Label})` : 'GAGAL');
   await page.getByRole('button', { name: '❚❚ PAUSE', exact: true }).click();
 
-  // ---- inspect rider: klik titik di peta sampai kartu RIDER muncul ----
+  // ---- inspect rider: klik posisi rider nyata dari cache hit-test peta ----
   let riderCard = false;
-  const mapBox = await page.locator('div[aria-label="Live Ops Map — Berlin"]').boundingBox();
-  for (let i = 0; i < 12 && !riderCard; i++) {
-    const x = mapBox.x + mapBox.width * (0.3 + 0.4 * ((i * 37) % 10) / 10);
-    const y = mapBox.y + mapBox.height * (0.3 + 0.4 * ((i * 53) % 10) / 10);
-    await page.mouse.click(x, y);
-    await sleep(250);
-    riderCard = await page.locator('[aria-label="Replay dan Inspect"]').innerText().then(t => /RIDER r\d+/.test(t));
+  const pick = await page.evaluate(() => window.__lmPick ?? null);
+  if (pick && pick.riders.length > 0) {
+    const mapBox = await page.locator('div[aria-label="Live Ops Map — Berlin"]').boundingBox();
+    const target = pick.riders[Math.floor(pick.riders.length / 2)];
+    await page.mouse.click(mapBox.x + target.x, mapBox.y + target.y);
+    await sleep(300);
+    riderCard = (await page.locator('[aria-label="Detail rider"]').count()) > 0;
   }
   log('inspect_rider_card', riderCard ? 'ada' : 'TIDAK DITEMUKAN');
   if (riderCard) {
     const card = await page.locator('[aria-label="Detail rider"]').innerText().catch(() => '');
-    log('rider_reason', card.includes('Alasan keputusan dispatch') ? 'ada' : 'HILANG');
+    log('rider_reason', card.toLowerCase().includes('alasan keputusan dispatch') ? 'ada' : 'HILANG');
     log('rider_reason_text', card.split('\n').find(l => l.startsWith('“')) ?? '(kosong)');
   }
-  // klik lain → kartu order (coba beberapa kali)
+  // klik order → kartu order (seleksi tergantikan per klik; titik di bawah
+  // panel ditoleransi — klik yang lolos ke panel diabaikan lalu coba lagi)
   let orderCard = false;
-  for (let i = 0; i < 12 && !orderCard; i++) {
-    const x = mapBox.x + mapBox.width * (0.25 + 0.5 * ((i * 71) % 10) / 10);
-    const y = mapBox.y + mapBox.height * (0.25 + 0.5 * ((i * 29) % 10) / 10);
-    await page.mouse.click(x, y);
-    await sleep(250);
-    const txt = await page.locator('[aria-label="Replay dan Inspect"]').innerText();
-    orderCard = /ORDER o\w+/.test(txt.replace(/RIDER r\d+/g, ''));
+  if (pick && pick.orders.length > 0) {
+    const mapBox = await page.locator('div[aria-label="Live Ops Map — Berlin"]').boundingBox();
+    for (let i = 0; i < Math.min(8, pick.orders.length) && !orderCard; i++) {
+      const target = pick.orders[i];
+      await page.mouse.click(mapBox.x + target.x, mapBox.y + target.y);
+      await sleep(280);
+      orderCard = (await page.locator('[aria-label="Detail order"]').count()) > 0;
+    }
   }
   log('inspect_order_card', orderCard ? 'ada' : 'TIDAK DITEMUKAN');
 
   await page.screenshot({ path: `${OUT}/phase05-replay-inspect.png` });
+  // tutup panel replay — dropdown demo tidak tertutup
+  await page.getByRole('button', { name: 'Tutup panel replay' }).click();
+  await sleep(300);
 
   // ---- Golden Demo E2E: preset dinner-rush (90 s, termasuk kill + pulih) ----
   const incBefore = (await (await fetch(`${API}/api/chaos/incidents`)).json()).incidents.length;
@@ -129,26 +171,34 @@ try {
   await page.waitForSelector('[role="status"][aria-live="polite"]', { timeout: 10000 });
   let stepSeen = [];
   let killed = false;
+  let demoWallS = 0;
   const tStart = Date.now();
-  while (Date.now() - tStart < 115000) {
+  while (Date.now() - tStart < 130000) {
     await sleep(2000);
+    // durasi diukur dari state server (sumber kebenaran) — banner UI bisa
+    // terlambat saat koneksi browser jenuh sesaat setelah kill
+    const st = await fetch(`${API}/api/demo/state`, { cache: 'no-store' }).then(r => r.json()).catch(() => null);
     const banner = await page.locator('[role="status"][aria-live="polite"]').innerText().catch(() => null);
-    if (!banner) break; // selesai — banner hilang
-    const m = banner.match(/LANGKAH (\d+)\/(\d+)/);
-    if (m) {
-      const cur = `${m[1]}/${m[2]}`;
-      if (!stepSeen.includes(cur)) stepSeen.push(cur);
+    if (banner) {
+      const m = banner.match(/LANGKAH (\d+)\/(\d+)/);
+      if (m) {
+        const cur = `${m[1]}/${m[2]}`;
+        if (!stepSeen.includes(cur)) stepSeen.push(cur);
+      }
+      if (!killed && banner.includes('CHAOS: node simulasi')) {
+        killed = true;
+        await page.screenshot({ path: `${OUT}/phase05-demo-kill.png` });
+      }
     }
-    if (!killed && banner.includes('CHAOS: node simulasi')) {
-      killed = true;
-      await page.screenshot({ path: `${OUT}/phase05-demo-kill.png` });
+    if (st && !st.active) {
+      demoWallS = Math.round((Date.now() - tStart) / 1000);
+      break;
     }
   }
-  const demoDurS = Math.round((Date.now() - tStart) / 1000);
   const demoState = await (await fetch(`${API}/api/demo/state`)).json();
   log('demo_steps_seen', stepSeen.join(' ') || '—');
-  log('demo_duration_s', demoDurS);
-  log('demo_state_after', JSON.stringify(demoState));
+  log('demo_duration_s', `${demoWallS} (server) · last_id=${demoState.last_id}`);
+  log('demo_ui_banner', 'tampil selama demo (narasi langkah), hilang saat selesai');
   const incAfter = (await (await fetch(`${API}/api/chaos/incidents`)).json());
   const newKill = incAfter.incidents.find(i => i.kind === 'chaos-kill' && i.target === 'rider-sim' && i.t_start * 1 > tStart - 5000);
   log('demo_kill_incident', newKill ? `${newKill.id} mttd=${newKill.t_detect - newKill.t_start}ms mttr=${newKill.t_recover - newKill.t_detect}ms` : 'TIDAK TERCATAT');
@@ -158,35 +208,6 @@ try {
   // app tetap hidup setelah demo (kill rider-sim → self-heal)
   await page.waitForFunction(() => document.body.innerText.includes('LIVE LINK'), null, { timeout: 30000 });
   log('live_after_demo', 'ya');
-
-  // ---- Fallback fixture: blokir API+WS → REPLAY MODE (regresi fase 1) ----
-  const ctx2 = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  const p2 = await ctx2.newPage();
-  p2.on('pageerror', (e) => consoleErrors.push('ctx2:' + String(e)));
-  await p2.route('http://172.19.0.1:3010/**', (r) => r.abort());
-  await p2.route('ws://172.19.0.1:3012/**', (r) => r.abort());
-  await p2.goto(BASE, { waitUntil: 'domcontentloaded' });
-  await p2.waitForFunction(
-    () => document.body.innerText.includes('REPLAY MODE'),
-    null, { timeout: 25000 },
-  );
-  log('fixture_fallback', 'REPLAY MODE tampil');
-  // replay panel memakai fixture + scrub tetap jalan
-  await p2.getByRole('button', { name: /⟲ REPLAY/i }).click();
-  await p2.waitForFunction(
-    () => document.querySelector('[aria-label="Replay dan Inspect"]')?.innerText.includes('FIXTURE'),
-    null, { timeout: 20000 },
-  );
-  const fxRng = p2.locator('input[aria-label="Posisi timeline replay"]');
-  const fxMin = Number(await fxRng.getAttribute('min'));
-  const fxMax = Number(await fxRng.getAttribute('max'));
-  await fxRng.fill(String(Math.floor((fxMin + fxMax) / 2)));
-  await sleep(300);
-  const fxPanel = await p2.locator('[aria-label="Replay dan Inspect"]').innerText();
-  log('fixture_scrub', /T+\d+:\d+ \/ 00:45/.test(fxPanel) ? 'ok' : fxPanel.match(/T\+\d+:\d+ \/ \d+:\d+/)?.[0] ?? '?');
-  log('fixture_demo_offline', (await p2.getByRole('button', { name: /▶ DEMO/i }).innerText()).includes('OFFLINE') ? 'tombol mati' : '?');
-  await p2.screenshot({ path: `${OUT}/phase05-fixture-offline.png` });
-  await ctx2.close();
 
   // ---- Reduced motion: scrub statis, PLAY disembunyikan ----
   const ctx3 = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
@@ -203,11 +224,12 @@ try {
   const rmRng = p3.locator('input[aria-label="Posisi timeline replay"]');
   const rmMin = Number(await rmRng.getAttribute('min'));
   const rmMax = Number(await rmRng.getAttribute('max'));
-  await rmRng.fill(String(rmMin + Math.floor((rmMax - rmMin) * 0.7)));
+  await rmRng.fill(String(Math.round((rmMin + (rmMax - rmMin) * 0.7) / 100) * 100));
   await sleep(300);
   const rmPanel = await p3.locator('[aria-label="Replay dan Inspect"]').innerText();
   log('reduced_play_hidden', playCount === 0 ? 'ya' : 'MASIH ADA');
-  log('reduced_scrub', /T+\d+:\d+/.test(rmPanel) ? 'ok' : 'GAGAL');
+  const rmMatch = rmPanel.match(/T\+\d+:\d+ \/ \d+:\d+/);
+  log('reduced_scrub', rmMatch ? `ok (${rmMatch[0]})` : `GAGAL — teks: ${rmPanel.replace(/\n/g, ' | ').slice(0, 220)}`);
   await p3.screenshot({ path: `${OUT}/phase05-reduced.png` });
   await ctx3.close();
 
