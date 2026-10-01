@@ -166,6 +166,26 @@ docker compose -p lastmile -f deploy/compose.yaml -f deploy/compose.pipeline.yam
   (`cat /proc/loadavg` dulu) — bukti angka: `reports/phase-04-chaos.md`.
 - Kembali aman: `docker compose -p lastmile --profile sim up -d` (chaos mati).
 
+### 4.4 AI Ops Copilot (Fase 7 — profile `copilot`, OFF-by-default)
+
+- Tanpa key, TIDAK melakukan apa-apa: service tidak ikut ter-deploy, gateway menjawab
+  `GET /api/copilot/capabilities` → `{"enabled":false}`, UI menyembunyikan panel
+  (ADR D24). Mode demo default (`--profile sim --profile chaos`) tidak berubah.
+- **Mengaktifkan (aksi PEMILIK — jangan pernah menaruh key di repo/git):**
+  1. `echo 'LASTMILE_OPENAI_API_KEY=sk-...' >> /home/rico/portfolio/lastmile-lab/.env`
+     (opsional: `LASTMILE_OPENAI_BASE_URL` untuk provider OpenAI-compatible lain,
+     `LASTMILE_OPENAI_MODEL`, default `gpt-4o-mini`).
+  2. `docker compose -p lastmile --profile sim --profile chaos --profile copilot pull && \
+     docker compose -p lastmile --profile sim --profile chaos --profile copilot up -d`
+  3. Verifikasi: `curl -s localhost:3010/api/copilot/capabilities` → `{"enabled":true}`;
+     panel ADVISOR (Strategy Lab) & COPILOT (System Health) muncul di UI.
+- Menonaktifkan: hapus key dari `.env` lalu `up -d` tanpa profile `copilot`
+  (atau `docker compose -p lastmile --profile copilot rm -sf copilot`).
+- Rate limit bawaan 6/menit per endpoint (env `RATE_PER_MIN` pada service `copilot`);
+  plan TIDAK pernah dieksekusi otomatis — tombol manusia dengan konfirmasi 2 langkah.
+- Evaluasi kualitas jawaban (15 kasus ground truth): prosedur di
+  `reports/phase-07-copilot.md` §6 — status: menunggu API key pemilik.
+
 
 - Override `deploy/compose.pipeline.yaml` hanya mengubah `rider-sim` →
   `ORDER_SOURCE=pipeline`. Tanpa override itu, demo tetap internal.

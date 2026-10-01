@@ -15,7 +15,7 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 | 4 | KPI Command Deck + System Health + chaos | ✅ |
 | 5 | Replay engine + Golden Demo presets + polish motion | ✅ |
 | 6 | Hardening produksi + monitoring + README story + artikel | ✅ |
-| 7 | (Opsional) AI Ops Copilot & Plan Advisor | ⬜ |
+| 7 | (Opsional) AI Ops Copilot & Plan Advisor | ✅ |
 
 ---
 
@@ -147,9 +147,20 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 ## Fase 7 — (Opsional) AI Ops Copilot & Plan Advisor
 
 **DoD:**
-- [ ] Adapter AI: tanpa API key → fitur tersembunyi, seluruh aplikasi tetap utuh
-- [ ] Plan Advisor: snapshot metrik → LLM usulkan Plan A/B/C terstruktur → simulator
+- [x] Adapter AI: tanpa API key → fitur tersembunyi, seluruh aplikasi tetap utuh
+- [x] Plan Advisor: snapshot metrik → LLM usulkan Plan A/B/C terstruktur → simulator
       dry-run tiap plan → admin memilih berdasarkan angka prediksi → eksekusi live
-- [ ] Copilot: tanya-jawab metrik/incident dengan sitasi data internal
-- [ ] Evaluasi kualitas jawaban terdokumentasi (ground truth kecil)
-- [ ] Commit & push
+- [x] Copilot: tanya-jawab metrik/incident dengan sitasi data internal
+- [x] Evaluasi kualitas jawaban terdokumentasi (ground truth kecil)
+- [x] Commit & push
+
+> **SELESAI 2026-10-01 (opsional-done; catatan evaluasi live di bawah).** Service
+> `copilot` :4207 profile `copilot` OFF-by-default (internal saja, 128 MiB); tanpa
+> key = noop provider (ErrNoLLM) → capabilities `{"enabled":false}` → **0 node
+> copilot di DOM**, regresi headless 6 layar + Golden Demo 7/7 + replay PASSED,
+> console 0 (`reports/phase-07-ui-verify.mjs`). Advisor: ≤3 plan schema ketat →
+> dry-run via jalur duel (seed sama, 120 s virtual ≈ 0,2 s wall di graph Berlin
+> penuh) → eksekusi manual konfirmasi 2 langkah via endpoint kontrol existing.
+> Ask Ops: jawaban tanpa sitasi ditolak (422). ADR D24; laporan +
+> **evaluasi live 15 kasus: menunggu API key pemilik** (kode + skoring teruji —
+> `reports/phase-07-copilot.md` §6). Ram stack demo tetap 1 888 MiB ≤ 2 GB.

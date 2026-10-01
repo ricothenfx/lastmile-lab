@@ -7,6 +7,9 @@
 #                                                                           # pipeline penuh (Fase 2) + rider-sim ORDER_SOURCE=pipeline
 #   ... + --profile loadtest                                                # tambah load-generator (hanya saat pengujian)
 #   ... + --profile chaos                                                   # chaos injector + incident timeline (Fase 4)
+#   ... + --profile copilot                                                 # AI Ops Copilot (Fase 7) — OFF-by-default:
+#                                                                           # butuh LASTMILE_OPENAI_API_KEY di .env (aksi pemilik);
+#                                                                           # tanpa key UI menyembunyikan panel copilot (ADR D24)
 #
 # Image backend dibangun GitHub Actions → GHCR (deploy/README.md §4);
 # VPS hanya pull. Semua limit sumber daya WAJIB — total budget stack ≤ 2 GB.
@@ -203,6 +206,7 @@ services:
       LOADGEN_URL: http://loadgen:4204
       LAB_URL: http://strategy-lab:4205
       CHAOS_URL: http://chaos:4206
+      COPILOT_URL: http://copilot:4207
     ports:
       - "${LASTMILE_BIND_IP:-127.0.0.1}:3010:3010"
     depends_on:
@@ -270,6 +274,34 @@ services:
     cpus: 0.1
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4206/healthz"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    logging: *log
+
+  # ---- Fase 7: AI Ops Copilot (profile `copilot` — OFF-by-default) ----
+  # Plugin LLM di LUAR core deterministik (ADR D8/D24): tanpa
+  # LASTMILE_OPENAI_API_KEY provider noop → UI menyembunyikan panel
+  # (capabilities {"enabled":false}) dan aplikasi tetap utuh. Dry-run plan
+  # memakai simulator (jalur duel) — LLM tidak pernah mengeksekusi apa pun.
+  # Jaringan internal saja (TIDAK dipublish ke host), mem_limit 128 MiB.
+  copilot:
+    image: ghcr.io/ricothenfx/lastmile-copilot:${LASTMILE_IMAGE_TAG:-latest}
+    container_name: lastmile-copilot
+    profiles: [copilot]
+    restart: unless-stopped
+    environment:
+      PORT: "4207"
+      API_GATEWAY_URL: http://api-gateway:3010
+      # Secret HANYA via .env VPS (aksi pemilik — tidak pernah di repo/git).
+      OPENAI_API_KEY: ${LASTMILE_OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${LASTMILE_OPENAI_BASE_URL:-}
+      OPENAI_MODEL: ${LASTMILE_OPENAI_MODEL:-gpt-4o-mini}
+    networks: [internal]
+    mem_limit: 128m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4207/healthz"]
       interval: 15s
       timeout: 3s
       retries: 5

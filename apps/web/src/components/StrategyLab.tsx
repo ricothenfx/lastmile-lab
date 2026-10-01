@@ -12,8 +12,10 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
+import AdvisorPanel from './AdvisorPanel';
 import HistOverlay from './strategy/HistOverlay';
 import MiniReplay from './strategy/MiniReplay';
+import { useCopilotEnabled } from '@/lib/copilot';
 import {
   PRESETS,
   STRATEGIES,
@@ -39,6 +41,8 @@ interface Props {
 
 function StrategyLabImpl({ onOpenChange }: Props) {
   const reduced = useReducedMotion() ?? false;
+  const copilotEnabled = useCopilotEnabled();
+  const [view, setView] = useState<'duel' | 'advisor'>('duel');
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<Phase>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -221,6 +225,30 @@ function StrategyLabImpl({ onOpenChange }: Props) {
 
       {open && (
         <div className="max-h-[78vh] overflow-y-auto px-4 pb-4">
+          {/* Tab Copilot (Fase 7) — TIDAK dirender sama sekali bila fitur
+              tersembunyi (tanpa API key), agar DOM identik dengan baseline. */}
+          {copilotEnabled && (
+            <div className="grid grid-cols-2 gap-1.5" role="tablist" aria-label="Tab Strategy Lab">
+              {(['duel', 'advisor'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === t}
+                  onClick={() => setView(t)}
+                  className={`rounded-input border px-2 py-1 font-mono text-[10px] tracking-[0.08em] transition-colors duration-fast ${
+                    view === t
+                      ? 'border-accent-cyan/60 bg-accent-cyan/10 text-accent-cyan'
+                      : 'border-line-subtle text-ink-secondary hover:text-ink-primary'
+                  }`}
+                >
+                  {t === 'duel' ? 'DUEL' : 'ADVISOR'}
+                </button>
+              ))}
+            </div>
+          )}
+          {(!copilotEnabled || view === 'duel') && (
+          <>
           {/* form duel */}
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
             <select
@@ -449,6 +477,9 @@ function StrategyLabImpl({ onOpenChange }: Props) {
               </div>
             </>
           )}
+          </>
+          )}
+          {copilotEnabled && view === 'advisor' && <AdvisorPanel />}
         </div>
       )}
     </aside>

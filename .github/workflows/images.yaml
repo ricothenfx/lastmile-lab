@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [rider-sim, ws-gateway, api-gateway, order-ingestion, dispatch-consumer, sim-control, loadgen, strategy-lab, chaos]
+        service: [rider-sim, ws-gateway, api-gateway, order-ingestion, dispatch-consumer, sim-control, loadgen, strategy-lab, chaos, copilot]
     steps:
       - uses: actions/checkout@v4
 

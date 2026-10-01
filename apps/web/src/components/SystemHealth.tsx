@@ -12,6 +12,8 @@
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
+import AskOpsPanel from './AskOpsPanel';
+import { useCopilotEnabled } from '@/lib/copilot';
 import {
   fetchChaosIncidents,
   fetchChaosState,
@@ -26,7 +28,7 @@ import { tokens } from '@/lib/tokens';
 const CH_H = 104;
 const POLL_CHAOS_MS = 1500;
 
-type Tab = 'pipeline' | 'chaos';
+type Tab = 'pipeline' | 'chaos' | 'copilot';
 
 // ---- model node pipeline ----
 
@@ -334,6 +336,7 @@ interface Props {
 
 function SystemHealthImpl({ kpiState }: Props) {
   const { kpi, stale } = kpiState;
+  const copilotEnabled = useCopilotEnabled();
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('pipeline');
   const [chaosTargets, setChaosTargets] = useState<ChaosTarget[] | null>(null);
@@ -404,8 +407,10 @@ function SystemHealthImpl({ kpiState }: Props) {
 
       {open && (
         <div className="px-4 pb-4">
-          <div className="grid grid-cols-2 gap-1.5" role="tablist" aria-label="Tab System Health">
-            {(['pipeline', 'chaos'] as Tab[]).map((t) => (
+          {/* Tab Copilot (Fase 7) — hanya ada di DOM bila fitur enabled;
+              tanpa API key grid tab tetap 2 kolom persis baseline. */}
+          <div className={`gap-1.5 ${copilotEnabled ? 'grid grid-cols-3' : 'grid grid-cols-2'}`} role="tablist" aria-label="Tab System Health">
+            {(['pipeline', 'chaos', ...(copilotEnabled ? (['copilot'] as const) : [])] as Tab[]).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -418,7 +423,7 @@ function SystemHealthImpl({ kpiState }: Props) {
                     : 'border-line-subtle text-ink-secondary hover:text-ink-primary'
                 }`}
               >
-                {t === 'pipeline' ? 'PIPELINE' : 'CHAOS'}
+                {t === 'pipeline' ? 'PIPELINE' : t === 'chaos' ? 'CHAOS' : 'COPILOT'}
               </button>
             ))}
           </div>
@@ -525,11 +530,14 @@ function SystemHealthImpl({ kpiState }: Props) {
                       </li>
                     );
                   })}
-                </ul>
-              )}
-            </>
-          )}
-        </div>
+                 </ul>
+               )}
+             </>
+           )}
+
+          {/* Tab COPILOT (Fase 7) — Ask Ops; tidak pernah ada di DOM bila disabled. */}
+          {copilotEnabled && tab === 'copilot' && <AskOpsPanel />}
+         </div>
       )}
     </aside>
   );

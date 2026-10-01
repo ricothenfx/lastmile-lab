@@ -5,27 +5,26 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** 7 (opsional) — AI Ops Copilot (spec: `docs/PHASES/phase-07.md`);
-  fase 1–6 selesai. Fase 7 boleh dilewati (opsional per ROADMAP).
-- **Kondisi:** Fase 6 SELESAI — go-live backend produksi: DNS pemilik aktif,
-  `api.`/`ws.` HTTPS hidup dari internet (healthz 200; WS upgrade TLS
-  terverifikasi end-to-end di UI headless yang dibangun dengan env domain
-  publik = konfigurasi Vercel). CI/CD penuh: job `deploy` di images.yaml
-  (skip-warning tanpa secret `DEPLOY_SSH_KEY`) + `scripts/deploy.sh` satu
-  perintah — siklus nyata push→build→image→pull+up+healthz di commit fase 6.
-  Uji beban 5 menit pasca go-live: zero loss (published=consumed=acked 4 261,
-  dup 0, 429 0, DB delta = sent persis; p50 301 ms / p99 2 487 ms pada host
-  load 5–7). RAM 1 888 MiB limit ≤ 2 GB (demo aktual ≈ 80 MiB). Keamanan: ADR
-  D23 (endpoint mutasi publik tanpa auth — risiko/mitigasi/jalur naik) + scan
-  bersih. Replay fallback terverifikasi di domain produksi (blokir browser +
-  stop backend sungguhan → REPLAY MODE → pulih LIVE). README final + artikel
-  `docs/blog/dispatch-explainability.md` + spec fase 7. Bukti:
-  `reports/phase-06-prod.md`.
-- **Langkah berikutnya:** (opsional) kick-off Fase 7 Copilot; atau polish
-  portofolio. Sisa aksi pemilik (bukan blokir repo): import Vercel + assign
-  domain frontend; 3 secret GitHub (`DEPLOY_SSH_KEY/HOST/USER`) untuk
-  auto-deploy; aktivasi monitor UptimeRobot (runbook §5.5); verifikasi 60fps
-  di laptop fisik (prosedur di bawah).
+- **Fase aktif:** TIDAK ADA — **fase 0–7 SELESAI** (fase 7 opsional, dikerjakan
+  2026-10-01: AI Ops Copilot, spec `docs/PHASES/phase-07.md`, ADR D24).
+- **Kondisi:** Fase 7 SELESAI mode tanpa key — service `copilot` :4207
+  (profile `copilot` OFF-by-default, internal saja, 128 MiB): tanpa
+  `OPENAI_API_KEY` provider noop → capabilities `{"enabled":false}` → UI tidak
+  merender panel apa pun (0 node di DOM); regresi headless 6 layar + Golden
+  Demo 7/7 + replay PASSED, console 0. Advisor = ≤3 plan schema ketat →
+  dry-run via jalur duel existing (seed sama, 120 s virtual ≈ 0,2 s wall) →
+  eksekusi manual konfirmasi 2 langkah via endpoint kontrol existing (LLM
+  tidak pernah eksekusi). Ask Ops = jawaban wajib sitasi; tanpa sitasi 422.
+  Evaluasi live 15 kasus: **menunggu API key pemilik** (kode + skoring
+  teruji, prosedur di `reports/phase-07-copilot.md` §6). Bonus: bug proxy
+  replay 4 s-client terpotong di host berbeban ditemukan + diperbaiki
+  (client khusus 30 s — regresi SESI LIVE terverifikasi).
+- **Langkah berikutnya:** (opsional) polish portofolio. Sisa aksi pemilik
+  (bukan blokir repo): import Vercel + assign domain frontend; 3 secret
+  GitHub (`DEPLOY_SSH_KEY/HOST/USER`) untuk auto-deploy; aktivasi monitor
+  UptimeRobot (runbook §5.5); verifikasi 60fps di laptop fisik (prosedur di
+  bawah); bila ingin menyalakan copilot: isi `LASTMILE_OPENAI_API_KEY` di
+  `.env` + profile `copilot` (runbook §4.4) lalu eksekusi evaluasi §6 laporan.
 - **Blokir/tergantung user:** none untuk koding. Go-live frontend Vercel
   tetap langkah pemilik akun — backend `api.`/`ws.` sudah LIVE.
 
@@ -48,6 +47,53 @@
    tidak berubah; playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-01 — Fase 7: AI Ops Copilot & Plan Advisor (sesi 8)
+
+- **Service `copilot` :4207** (profile compose `copilot` OFF-by-default, jaringan
+  internal saja, mem_limit 128 MiB, healthz): interface `LLM{Complete}` + **noop
+  provider (`ErrNoLLM`) tanpa `OPENAI_API_KEY`** + OpenAI-compatible HTTP murni
+  (`OPENAI_BASE_URL` bisa ganti provider, timeout ketat 8 s, tanpa SDK). Endpoint:
+  `/capabilities` → `{"enabled":bool}`, `/advise` (≤3 plan schema JSON ketat, plan
+  invalid DIBUANG dengan alasan), `/ask` (jawaban WAJIB sitasi `sources`; tanpa
+  sitasi/id tak dikenal → 422 ditolak). Rate limit token bucket 6/menit/endpoint.
+  Context internal dari endpoint existing (`/api/kpi`+`/api/metrics`+`/api/chaos/
+  incidents` — TANPA akses DB); bagian fetch gagal dilaporkan `_missing`, jujur.
+- **Dry-run = simulator, bukan LLM** (ADR D24): tiap plan lewat jalur duel existing
+  `internal/duel` — baseline vs plan, SATU generator seed sama (fairness D18),
+  120 s virtual ≈ **0,2 s wall di graph Berlin penuh** (unit test). Mapping:
+  strategy→strategi sisi plan; surge→skala laju generator; weather→WeatherFactor;
+  **kill tidak bisa disimulasikan → plan tanpa angka palsu + Note jujur**. Core
+  `internal/sim` + `pkg/dispatch` TIDAK disentuh (determinisme tetap diuji).
+- **Proxy api-gateway** (`copilot.go` + test): tanpa `COPILOT_URL` → capabilities
+  tetap `{"enabled":false}` (200), lainnya 503 `copilot_disabled`; dengan URL →
+  passthrough (client 45 s untuk LLM+dry-run).
+- **UI**: tab ADVISOR (Strategy Lab) + COPILOT (System Health) HANYA ada di DOM
+  saat enabled — tanpa key DOM persis baseline (0 node; tab bar tidak dirender).
+  Advisor: tabel BASE|PLAN|Δ mono tabular + EXECUTE per plan **konfirmasi 2 langkah**
+  → endpoint kontrol existing (surge/weather via sim-control, kill via chaos;
+  strategy jujur "SKIP — butuh restart env"). Ask Ops: jawaban + daftar sitasi
+  (id + label + value). Jalur enabled diuji **tanpa API key** via route-stub
+  Playwright (advisor render, dry-run delta, kill-note jujur, execute 2 langkah,
+  ask sitasi, reject 422) — console 0.
+- **Regresi no-key PASSED** (`reports/phase-07-ui-verify.mjs` MODE hidden): 6 layar
+  + Golden Demo dinner-rush **7/7 langkah** (kill rider-sim → pulih) + replay SESI
+  LIVE + **0 node copilot** + console error 0. Bukti: `reports/phase07-*.png`,
+  laporan `reports/phase-07-copilot.md`.
+- **Bug replay ditemukan & diperbaiki**: `/api/replay/*` di api-gateway memakai
+  client 4 s — dump ring penuh ±21 MB gzip butuh >4 s di host berbeban → stream
+  terpotong ("Unterminated string at ~50 MB" di browser → jatuh fixture). Fix:
+  client khusus 30 s; SESI LIVE terverifikasi ulang.
+- **Infra/CI**: image GHCR +1 (`lastmile-copilot`, total 10); PORTS.md +4207
+  (container-only); runbook §4.4 (aktivasi = aksi pemilik via `.env`, TIDAK
+  menset secret apa pun di sesi ini); RAM stack demo tetap 1 888 MiB ≤ 2 GB.
+- **Evaluasi kualitas**: ground truth 15 kasus (5 surge/5 incident/5 metrik) +
+  skoring benar/parsial/salah + cek area sitasi — unit test hijau; **eksekusi
+  live MENUNGGU API KEY PEMILIK** (prosedur ±10 menit di laporan §6).
+- Verifikasi lokal sesuai batas keras: build/test via docker golang:1.26-alpine
+  (cache lastmile-gomod/lastmile-gobuild; 19 paket hijau), web via node:20-alpine,
+  headless mcr.microsoft.com/playwright:v1.63.0-noble (deps /tmp/kilo/node_modules);
+  container uji di network lastmile_internal dihapus setelah verifikasi.
 
 ### 2026-10-01 — Fase 6: Produksi go-live + CI/CD penuh + README & artikel (sesi 7)
 

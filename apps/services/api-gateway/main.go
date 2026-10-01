@@ -10,7 +10,11 @@
 //	*    /api/lab/*           → strategy-lab (Strategy Lab, Fase 3)
 //	GET  /api/kpi             KPI + SLO + grid + budget (Fase 4, kpi.go)
 //	*    /api/chaos/*         → chaos injector (Fase 4)
-//	*    /api/replay/*        → rider-sim sesi rekaman (Fase 5, gzip passthrough)
+//	*    /api/replay/*        → rider-sim sesi rekaman (Fase 5, gzip passthrough;
+//	                             client khusus 30 s — dump penuh ±21 MB gzip butuh
+//	                             detik-detik di host berbeban; client 4 s memotong
+//	                             stream → JSON terpotong di browser)
+//	*    /api/copilot/*       → copilot LLM plugin (Fase 7; off → capabilities {"enabled":false})
 //	GET  /api/demo/presets    Golden Demo — daftar preset (Fase 5, demo.go)
 //	POST /api/demo/play       jalankan preset (surge/weather via sim-control + kill via chaos)
 //	POST /api/demo/stop       hentikan demo
@@ -39,6 +43,9 @@ func main() {
 	loadgenURL := envStr("LOADGEN_URL", "") // hanya saat loadtest — kosong = skip
 	labURL := envStr("LAB_URL", "")         // kosong = /api/lab/* → 503 (lab opsional)
 	chaosURL := envStr("CHAOS_URL", "")     // kosong = /api/chaos/* → 503 (chaos opsional)
+	// copilot (Fase 7): kosong = fitur tersembunyi — /api/copilot/capabilities
+	// tetap menjawab {"enabled":false} (200) agar UI tidak menebak dari 404.
+	copilotURL := envStr("COPILOT_URL", "")
 	client := &http.Client{Timeout: 4 * time.Second}
 
 	var simMu sync.Mutex
@@ -176,6 +183,10 @@ func main() {
 		io.Copy(w, resp.Body)
 	}
 
+	// proxy copilot (Fase 7): lihat copilot.go — disabled → capabilities
+	// {"enabled":false}; enabled → passthrough dengan timeout panjang.
+	proxyCopilot := copilotProxy(copilotURL, nil)
+
 	// /api/kpi — KPI agregat + SLO + grid + error budget (Fase 4, kpi.go).
 	// Semua upstream diambil paralel; payload di-cache 400 ms agar polling
 	// UI 2 Hz tidak menghajar service internal.
@@ -268,7 +279,9 @@ func main() {
 	mux.HandleFunc("/api/lab", proxyLab)
 	mux.HandleFunc("/api/chaos/", proxyChaos)
 	mux.HandleFunc("/api/chaos", proxyChaos)
-	mux.HandleFunc("/api/replay/", replayProxy(simURL, client))
+	mux.HandleFunc("/api/replay/", replayProxy(simURL, &http.Client{Timeout: 30 * time.Second}))
+	mux.HandleFunc("/api/copilot/", proxyCopilot)
+	mux.HandleFunc("/api/copilot", proxyCopilot)
 	registerDemo(mux, newDemoRunner(controlURL, chaosURL))
 
 	handler := cors(mux)
