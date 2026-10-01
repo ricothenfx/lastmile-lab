@@ -2,14 +2,17 @@
 
 import { MotionConfig, useReducedMotion } from 'framer-motion';
 import { useRef, useState } from 'react';
+import DemoLauncher from './DemoLauncher';
 import KpiDeck from './KpiDeck';
 import Legend from './Legend';
 import LiveMap, { type LiveStreamRef } from './LiveMap';
 import ReplayBanner from './ReplayBanner';
+import ReplayPanel from './ReplayPanel';
 import StrategyLab from './StrategyLab';
 import SurgeConsole from './SurgeConsole';
 import SystemHealth from './SystemHealth';
 import TopBar from './TopBar';
+import type { ReplayOverride } from '@/lib/replay';
 import { useKpi } from '@/lib/useKpi';
 import { useOpsStream } from '@/lib/useOpsStream';
 
@@ -26,7 +29,10 @@ export default function OpsApp() {
     mode: stream.mode,
     reduced,
   });
-  streamRef.current.getPair = stream.getPair;
+  // Override replay (Fase 5): pasangan replay menang atas live/fixture;
+  // saat null aliran normal dipakai — tanpa rAF baru, render on-demand.
+  const overrideRef = useRef<ReplayOverride>({ getPair: () => null });
+  streamRef.current.getPair = (now) => overrideRef.current.getPair(now) ?? stream.getPair(now);
   streamRef.current.mode = stream.mode;
   streamRef.current.reduced = reduced;
 
@@ -52,11 +58,11 @@ export default function OpsApp() {
           <StrategyLab onOpenChange={setLabOpen} />
           <SurgeConsole mode={stream.mode} stats={stream.stats} />
           <SystemHealth kpiState={kpiState} />
-          <footer className="pointer-events-none absolute bottom-4 left-1/2 z-0 hidden -translate-x-1/2 min-[820px]:block">
-            <p className="text-[11px] text-ink-secondary">
-              lastmile-lab · phase 4 · data © OpenStreetMap contributors
-            </p>
-          </footer>
+          {/* dock kontrol bawah (Fase 5): Golden Demo + Replay & Inspect */}
+          <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+            <DemoLauncher />
+            <ReplayPanel streamRef={streamRef} overrideRef={overrideRef} />
+          </div>
         </main>
       </div>
     </MotionConfig>

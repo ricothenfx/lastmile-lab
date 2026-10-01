@@ -11,12 +11,18 @@ import {
   type RiderPt,
   type Snapshot,
 } from '@/lib/protocol';
+import type { FramePair, MapPick } from '@/lib/replay';
 import type { OpsStream } from '@/lib/useOpsStream';
 
 export interface LiveStreamRef {
-  getPair: (now: number) => { prev: Snapshot | null; next: Snapshot | null; alpha: number };
+  /** Bisa mengembalikan pasangan replay (override) atau pasangan live. */
+  getPair: (now: number) => FramePair;
   mode: OpsStream['mode'];
   reduced: boolean;
+  /** Terpasang saat override replay aktif — LiveMap hit-test klik peta. */
+  onMapClick?: ((pick: MapPick | null) => void) | null;
+  /** Entitas terpilih (kartu inspect) — digambar cincin highlight. */
+  selected?: MapPick | null;
 }
 
 /** BBox Berlin inner-city — harus sinkron dengan apps/services graph meta. */
@@ -130,11 +136,24 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
     const pulseSeen = new Map<string, number>();
     let dpr = 1;
 
+    // Guard render on-demand (Fase 5): frame replay statis (pause/scrub)
+    // hanya digambar ulang saat key frame berubah ATAU peta/viewport
+    // berubah — tanpa kerja per-rAF saat diam, tanpa rAF baru.
+    let lastDrawnKey: number | null = null;
+    let lastSelKey: MapPick | null | undefined = undefined;
+    let dirty = true;
+    // Cache px terakhir untuk hit-test klik (inspect rider/order).
+    let pickData: {
+      riders: Map<number, [number, number]>;
+      orders: { id: string; x: number; y: number }[];
+    } | null = null;
+
     const resize = () => {
       dpr = Math.min(2, window.devicePixelRatio || 1);
       canvas.width = Math.round(container.clientWidth * dpr);
       canvas.height = Math.round(container.clientHeight * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      dirty = true;
     };
     resize();
     ro = new ResizeObserver(resize);
@@ -167,6 +186,32 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
 
       const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
 
+      map.on('move', () => {
+        dirty = true;
+      });
+
+      // Inspect (Fase 5): klik rider/order pada frame aktif — hanya saat
+      // override replay memasang handler (mode live dibiarkan untuk drag peta).
+      map.on('click', (e) => {
+        const cb = streamRef.current.onMapClick;
+        if (!cb || !pickData) return;
+        let bestR: { id: number; d: number } | null = null;
+        for (const [id, [x, y]] of pickData.riders) {
+          const d = Math.hypot(x - e.point.x, y - e.point.y);
+          if (d < 16 && (!bestR || d < bestR.d)) bestR = { id, d };
+        }
+        if (bestR) {
+          cb({ kind: 'rider', id: bestR.id });
+          return;
+        }
+        let bestO: { id: string; d: number } | null = null;
+        for (const o of pickData.orders) {
+          const d = Math.hypot(o.x - e.point.x, o.y - e.point.y);
+          if (d < 12 && (!bestO || d < bestO.d)) bestO = { id: o.id, d };
+        }
+        cb(bestO ? { kind: 'order', id: bestO.id } : null);
+      });
+
       const riderPos = (
         prevR: RiderPt | undefined,
         nextR: RiderPt,
@@ -184,8 +229,17 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
         const pair = getPair(now);
         const w = container.clientWidth;
         const h = container.clientHeight;
+        const key = pair && typeof pair.key === 'number' ? pair.key : null;
+        const selKey = streamRef.current.selected;
+        if (key !== null && key === lastDrawnKey && selKey === lastSelKey && !dirty) return;
+        lastDrawnKey = key;
+        lastSelKey = selKey;
+        dirty = false;
         ctx.clearRect(0, 0, w, h);
-        if (!pair.next) return;
+        if (!pair.next) {
+          pickData = null;
+          return;
+        }
 
         const alpha = reduced ? 1 : pair.alpha;
         const prevIdx = new Map<number, RiderPt>();
@@ -195,6 +249,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
         for (const r of pair.next.r) {
           positions.set(r.i, riderPos(prevIdx.get(r.i), r, alpha));
         }
+        pickData = { riders: new Map(), orders: [] };
 
         // --- trailing glow (geo trail, diproyeksi tiap frame) ---
         if (!reduced) {
@@ -261,11 +316,12 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
         for (const o of pair.next.o) {
           const waiting = o.s !== ORDER_STATUS.inTransit;
           if (waiting) {
+            const p = map.project([o.po, o.pa]);
+            pickData.orders.push({ id: o.i, x: p.x, y: p.y });
             if (!pulseSeen.has(o.i)) {
               pulseSeen.set(o.i, now);
               if (pulseSeen.size > 900) pulseSeen.clear();
             }
-            const p = map.project([o.po, o.pa]);
             const started = pulseSeen.get(o.i) ?? now;
             if (!reduced) {
               const age = now - started;
@@ -290,6 +346,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
             ctx.fill();
           } else {
             const p = map.project([o.do, o.da]);
+            pickData.orders.push({ id: o.i, x: p.x, y: p.y });
             ctx.globalAlpha = 0.5;
             ctx.fillStyle = tokens.color.statusViolet;
             ctx.beginPath();
@@ -305,6 +362,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
           const pos = positions.get(r.i);
           if (!pos) continue;
           const p = map.project([pos[1], pos[0]]);
+          pickData.riders.set(r.i, [p.x, p.y]);
           const color = riderStatusColor[r.s] ?? tokens.color.accentLime;
           const glow = glows[r.s] ?? glows[0];
           ctx.drawImage(glow, p.x - 13, p.y - 13, 26, 26);
@@ -316,6 +374,40 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
           ctx.globalCompositeOperation = 'lighter';
         }
         ctx.globalCompositeOperation = 'source-over';
+
+        // --- cincin highlight entri terpilih (inspect, Fase 5) ---
+        const sel = streamRef.current.selected;
+        if (sel) {
+          let sx = 0;
+          let sy = 0;
+          let found = false;
+          if (sel.kind === 'rider') {
+            const pos = positions.get(sel.id as number);
+            if (pos) {
+              const p = map.project([pos[1], pos[0]]);
+              sx = p.x;
+              sy = p.y;
+              found = true;
+            }
+          } else {
+            const so = orderById.get(sel.id as string);
+            if (so) {
+              const target =
+                so.s === ORDER_STATUS.inTransit ? [so.da, so.do] : [so.pa, so.po];
+              const p = map.project([target[1], target[0]]);
+              sx = p.x;
+              sy = p.y;
+              found = true;
+            }
+          }
+          if (found) {
+            ctx.strokeStyle = tokens.color.statusCoral;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sx, sy, 9, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
       };
 
       map.on('load', () => {

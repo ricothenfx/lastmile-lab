@@ -10,6 +10,11 @@
 //	*    /api/lab/*           → strategy-lab (Strategy Lab, Fase 3)
 //	GET  /api/kpi             KPI + SLO + grid + budget (Fase 4, kpi.go)
 //	*    /api/chaos/*         → chaos injector (Fase 4)
+//	*    /api/replay/*        → rider-sim sesi rekaman (Fase 5, gzip passthrough)
+//	GET  /api/demo/presets    Golden Demo — daftar preset (Fase 5, demo.go)
+//	POST /api/demo/play       jalankan preset (surge/weather via sim-control + kill via chaos)
+//	POST /api/demo/stop       hentikan demo
+//	GET  /api/demo/state      status demo berjalan
 package main
 
 import (
@@ -263,6 +268,8 @@ func main() {
 	mux.HandleFunc("/api/lab", proxyLab)
 	mux.HandleFunc("/api/chaos/", proxyChaos)
 	mux.HandleFunc("/api/chaos", proxyChaos)
+	mux.HandleFunc("/api/replay/", replayProxy(simURL, client))
+	registerDemo(mux, newDemoRunner(controlURL, chaosURL))
 
 	handler := cors(mux)
 	addr := "0.0.0.0:" + port

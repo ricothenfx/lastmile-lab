@@ -9,10 +9,16 @@
 //	GET /api/graph           graph JSON mentah (debugging)
 //	POST /internal/orders    injeksi order pipeline (hanya ORDER_SOURCE=pipeline)
 //	GET|POST /internal/control  baca/ubah surge & weather live (sim-control)
+//	GET /api/replay/sessions       daftar sesi rekaman (Fase 5)
+//	GET /api/replay/sessions/{id}  dump frame + keputusan (gzip multi-member)
 //
 // ORDER_SOURCE=internal (default) → generator Poisson internal, demo tidak
 // pernah mati tanpa infra. ORDER_SOURCE=pipeline → generator mati, order hanya
 // dari dispatch-consumer via Kafka.
+//
+// Perekam sesi (Fase 5): goroutine sendiri menarik FullSnapshot 5 Hz ke ring
+// berbudget (internal/replay) — engine TIDAK disentuh, determinisme same-seed
+// tetap; kontrak model.Snapshot tidak berubah.
 package main
 
 import (
@@ -27,6 +33,7 @@ import (
 	"time"
 
 	"github.com/ricothenfx/lastmile-lab/apps/services/internal/graph"
+	"github.com/ricothenfx/lastmile-lab/apps/services/internal/replay"
 	"github.com/ricothenfx/lastmile-lab/apps/services/internal/sim"
 	"github.com/ricothenfx/lastmile-lab/apps/services/pkg/dispatch"
 	"github.com/ricothenfx/lastmile-lab/apps/services/pkg/model"
@@ -71,6 +78,16 @@ func main() {
 		log.Fatalf("init sim: %v", err)
 	}
 
+	// Perekam sesi replay (Fase 5): ring 15 menit @ 5 Hz, blob gzip per frame.
+	recorder := replay.New(replay.Meta{
+		Seed:          cfg.Seed,
+		Strategy:      stratName,
+		Riders:        cfg.Riders,
+		TickHz:        cfg.TickHz,
+		StartedWallMs: time.Now().UnixMilli(),
+	})
+	go runRecorder(engine, recorder)
+
 	tickInterval := time.Second / time.Duration(cfg.TickHz)
 	go func() {
 		t := time.NewTicker(tickInterval)
@@ -84,12 +101,14 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		snap := engine.Snapshot()
+		info := recorder.SessionInfo()
 		writeJSON(w, http.StatusOK, model.Health{
 			OK: true, Service: "rider-sim",
 			UptimeSec: int64(time.Since(start).Seconds()),
-			Detail: fmt.Sprintf(`source=%s riders=%d active_orders=%d delivered=%d expired=%d strategy=%s tick_hz=%d surge=%.1f weather=%.2f`,
+			Detail: fmt.Sprintf(`source=%s riders=%d active_orders=%d delivered=%d expired=%d strategy=%s tick_hz=%d surge=%.1f weather=%.2f replay_frames=%d replay_kb=%d`,
 				source, len(snap.Riders), snap.Stats.Active, snap.Stats.Delivered, snap.Stats.Expired,
-				snap.Stats.Strategy, cfg.TickHz, snap.Stats.SurgeFactor, snap.Stats.WeatherFactor),
+				snap.Stats.Strategy, cfg.TickHz, snap.Stats.SurgeFactor, snap.Stats.WeatherFactor,
+				info.Frames, info.FrameBytes/1024),
 		})
 	})
 	mux.HandleFunc("/internal/state", func(w http.ResponseWriter, r *http.Request) {
@@ -110,6 +129,27 @@ func main() {
 	mux.HandleFunc("/api/graph", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write(graphJSON)
+	})
+
+	// Replay engine (Fase 5): daftar sesi + dump frame+keputusan.
+	mux.HandleFunc("GET /api/replay/sessions", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"sessions": []replay.SessionInfo{recorder.SessionInfo()}})
+	})
+	mux.HandleFunc("GET /api/replay/sessions/{id}", func(w http.ResponseWriter, r *http.Request) {
+		if r.PathValue("id") != recorder.SessionInfo().Meta.ID {
+			http.Error(w, `{"error":"session_not_found"}`, http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if acceptsGzip(r) {
+			// Dump = rangkaian anggota gzip (multi-member) — disalurkan apa adanya.
+			w.Header().Set("Content-Encoding", "gzip")
+			w.WriteHeader(http.StatusOK)
+			_ = recorder.WriteDump(w, true)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_ = recorder.WriteDump(w, false)
 	})
 
 	// Injeksi order pipeline — aktif hanya saat sumber = pipeline (409 bila
@@ -167,6 +207,28 @@ func envStr(k, def string) string {
 		return v
 	}
 	return def
+}
+
+// runRecorder menarik FullSnapshot 5 Hz (200 ms) ke ring replay — loop
+// terpisah dari tick engine; hanya membaca, tidak pernah menulis engine.
+func runRecorder(engine *sim.Engine, rec *replay.Recorder) {
+	t := time.NewTicker(200 * time.Millisecond)
+	defer t.Stop()
+	for range t.C {
+		full := engine.FullSnapshot()
+		rec.Record(full.Snapshot, time.Now().UnixMilli())
+		rec.RecordDecisions(full.Decisions)
+	}
+}
+
+// acceptsGzip membaca Accept-Encoding klien (browser mengirim "gzip").
+func acceptsGzip(r *http.Request) bool {
+	for _, part := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+		if strings.TrimSpace(strings.SplitN(part, ";", 2)[0]) == "gzip" {
+			return true
+		}
+	}
+	return false
 }
 
 func envInt(k string, def int) int {

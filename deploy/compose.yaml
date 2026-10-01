@@ -150,7 +150,10 @@ services:
       SURGE_FACTOR: "1.0"
       SEED: "42"
     networks: [internal]
-    mem_limit: 128m
+    # 160m (Fase 5, sebelumnya 128m): ring replay in-memory 15 menit @ 5 Hz
+    # (blob gzip per frame, terukur ≈ 4,6 MB @ 100 rider + keputusan ≈ 2 MB)
+    # + headroom GC marshall/gzip 5 Hz. Budget stack tetap ≤ 2 GB (≤ 1.920 MiB).
+    mem_limit: 160m
     cpus: 0.5
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4201/healthz"]
@@ -366,10 +369,13 @@ services:
 
   # Satu-satunya service pipeline yang dipublish ke host (loopback) —
   # kontrol operator; frontend masuk lewat proxy api-gateway.
+  # Fase 5: ikut profile `sim` — Golden Demo memakai sim-control sebagai
+  # aktuator surge/weather di mode demo (sim-control sudah terhitung di
+  # anggaran RAM; hanya profile-nya yang diperluas).
   sim-control:
     image: ghcr.io/ricothenfx/lastmile-sim-control:${LASTMILE_IMAGE_TAG:-latest}
     container_name: lastmile-sim-control
-    profiles: [pipeline]
+    profiles: [sim, pipeline]
     restart: unless-stopped
     environment:
       PORT: "3013"
