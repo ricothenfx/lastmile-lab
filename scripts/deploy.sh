@@ -32,10 +32,10 @@ awk -v l="$load1" -v m="$LOAD_MAX" 'BEGIN { exit !(l <= m) }' || {
 }
 
 echo "==> [2/4] Pull image GHCR (tag: \${LASTMILE_IMAGE_TAG:-latest})"
-run "cd '${REPO_DIR}' && docker compose -p lastmile --profile sim --profile chaos pull --quiet"
+run "cd '${REPO_DIR}' && docker compose -p lastmile -f deploy/compose.yaml --profile sim --profile chaos pull --quiet"
 
 echo "==> [3/4] up -d (profile sim + chaos — mode demo aman 24/7)"
-run "cd '${REPO_DIR}' && docker compose -p lastmile --profile sim --profile chaos up -d"
+run "cd '${REPO_DIR}' && docker compose -p lastmile -f deploy/compose.yaml --profile sim --profile chaos up -d"
 
 echo "==> [4/4] Verifikasi /healthz (domain publik dulu, fallback gateway/loopback)"
 if run "curl -fsS -m 8 https://api.lastmile-lab.ricothen.com/healthz"; then

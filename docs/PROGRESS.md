@@ -66,9 +66,11 @@
   Skrip: `reports/phase-06-ui-verify.mjs`, bukti `phase06-*.png` (4).
 - **CI/CD penuh**: workflow `images` + job `deploy` (SSH → `scripts/deploy.sh`
   = cek load → `compose pull` → `up -d` profile sim+chaos → curl healthz).
-  Tanpa secret `DEPLOY_SSH_KEY` job SKIP-warning (CI hijau); setup 3 secret
-  didokumentasikan (`deploy/README.md` §4.0). Jalur satu perintah yang sama
-  dibuktikan nyata dari VPS pada commit fase 6 (siklus push→build→image→deploy).
+  Tanpa secret `DEPLOY_SSH_KEY` job SKIP-warning (CI hijau — terbukti di run
+  images commit fase 6); setup 3 secret didokumentasikan (`deploy/README.md`
+  §4.0). Siklus nyata dari VPS: load guard menolak saat load 8,19>8, jalan
+  setelah turun — pull → up -d → healthz 200 via domain → "Deploy selesai"
+  (fix `-f deploy/compose.yaml` di commit ikutan).
 - **Uji beban ringan pasca go-live** (5 menit, kompos fase 2, seed 7, host
   load 5–7): sent/acked 4 263/4 261, 429 = 0, error klien 0, p50 301 ms /
   p99 2 487 ms; published = consumed = **4 261**, dup 0, DB delta window =

@@ -52,12 +52,16 @@ verifikasi `/healthz` (domain publik, fallback loopback).
   auto-deploy aktif tanpa perubahan workflow lagi.
 - **Jalur satu perintah**: `scripts/deploy.sh` (di VPS) atau
   `DEPLOY_SSH_HOST=user@host scripts/deploy.sh` (dari mesin lain) — jalur yang
-  sama persis dengan job CI.
+  sama persis dengan job CI. **Dua bukti nyata saat sesi fase 6**: (1) load
+  guard menolak deploy saat load host 8,19 > 8 ("deploy ditunda") lalu jalan
+  setelah load turun 6,3; (2) siklus penuh pull → `up -d` → healthz 200 via
+  domain publik → "Deploy selesai" (fix `compose -f deploy/compose.yaml`
+  ikut di-commit fase ini).
 - **Siklus nyata fase ini**: commit penutup fase 6 memicu workflow `images`
-  (build ulang 9 image + push GHCR), lalu `scripts/deploy.sh` dijalankan di VPS
-  — pull image baru, `up -d`, healthz hijau (bukti: log sesi + run GitHub
-  Actions `images` pada commit fase 6). Job `deploy` CI sendiri menunggu
-  secret pemilik (skip warning, terdokumentasi).
+  (build ulang 9 image + push GHCR — semua success), job `deploy` terbukti
+  berjalan & SKIP-warning tanpa secret (CI tetap hijau), lalu `scripts/deploy.sh`
+  dijalankan di VPS — pull image, `up -d`, healthz hijau. Begitu secret
+  `DEPLOY_SSH_KEY/HOST/USER` dipasang pemilik, jalur yang sama otomatis dari CI.
 
 ## 3. Monitoring & ketahanan
 
