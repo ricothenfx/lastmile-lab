@@ -132,11 +132,13 @@ WS/API 172.19.0.1). Hasil run final:
 - System Health: canvas pipeline tergambar + partikel bergerak (bukti piksel),
   grid node tampil, health events mengalir.
 - Chaos E2E dari UI: tombol KILL dua langkah (arm → CONFIRM) → kill
-  strategy-lab → incident `chaos-kill` **MTTD 414 ms · MTTR 1 996 ms** tampil di
-  timeline (RECOVERED), service kembali `healthy` di grid.
-- rAF audit: open tab PIPELINE 140 panggilan rAF/2 s vs map-only 70–73/2 s →
-  partikel hanya hidup saat panel terbuka; tab CHAOS/panel tertutup = baseline
-  LiveMap (fase 1, by-design) — tanpa rAF permanen baru.
+  strategy-lab → incident `chaos-kill` **MTTD 1 008 ms · MTTR 1 994 ms** tampil
+  di timeline (RECOVERED), service kembali `healthy` di grid.
+- rAF audit (deterministik): canvas pipeline bergerak saat tab terbuka (bukti
+  piksel), UNMOUNT saat tab diganti & konten panel unmount saat ditutup
+  (cleanup React membatalkan rAF — tanpa rAF permanen baru). Hitungan
+  informatif: 88/2 s terbuka vs 42–72/2 s baseline map (berfluktuasi ikut
+  beban host).
 - reduced-motion: pipeline statis tergambar, tanpa getaran.
 - Layout 1440/1024/768 tanpa tumpang tindih panel; console error 0.
 - Bukti gambar: `reports/phase04-deck-live.png`, `phase04-chaos-recovered.png`,

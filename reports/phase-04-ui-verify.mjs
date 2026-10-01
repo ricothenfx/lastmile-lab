@@ -111,7 +111,7 @@ try {
   }, API, { timeout: 60000, polling: 1000 });
   log('strategy_lab_recovered', 'healthy lagi (state API)');
 
-  await page.screenshot({ path: '/tmp/kilo/phase04-chaos-recovered.png' });
+  await page.screenshot({ path: '/out/phase04-chaos-recovered.png' });
 
   // ---- rAF audit: panel baru tidak menambah rAF permanen ----
   // Metodologi: (1) bukti piksel — canvas pipeline berubah saat tab open
@@ -143,26 +143,31 @@ try {
   const snapB = await canvasSnap();
   const pixelsMove = snapA !== snapB;
   const rafOpen = await rafDelta(2000);
-  await page.getByRole('tab', { name: 'CHAOS' }).click(); // pipeline canvas unmount
-  await page.waitForTimeout(500);
+  // Gate keras deterministik: canvas UNMOUNT saat tab diganti → cleanup React
+  // membatalkan rAF (struktural, tanpa noise load host). Hitungan rAF hanya
+  // informatif — rate LiveMap (fase 1, by-design) berfluktuasi mengikuti load.
+  await page.getByRole('tab', { name: 'CHAOS' }).click();
+  await page.waitForTimeout(300);
+  const canvasAfterTab = await page.$$('aside[aria-label="System Health"] canvas');
   const rafChaos = await rafDelta(2000);
-  await page.getByRole('button', { name: /System Health/i }).click(); // tutup panel
-  await page.waitForTimeout(500);
+  await page.getByRole('button', { name: /System Health/i }).click(); // tutup
+  await page.waitForTimeout(400);
+  // panel collapsible: header tetap ada, KONTEN (tab+canvas) yang di-unmount
+  const tabsAfterClose = await page.$$('aside[aria-label="System Health"] [role="tab"]');
   const rafClosed = await rafDelta(2000);
   log('pipeline_pixels_move', pixelsMove ? 'ya (partikel hidup)' : 'TIDAK (statis!)');
   log('raf_calls_2s_pipeline_open', String(rafOpen));
   log('raf_calls_2s_chaos_tab', String(rafChaos));
   log('raf_calls_2s_panel_closed', String(rafClosed));
+  log('pipeline_canvas_after_tab_switch', canvasAfterTab.length === 0 ? 'unmount (rAF dibatalkan)' : 'MASIH ADA!');
+  log('panel_content_after_close', tabsAfterClose.length === 0 ? 'unmount (collapsed)' : 'MASIH TERBUKA!');
   if (!pixelsMove) throw new Error('partikel pipeline tidak bergerak saat tab terbuka');
-  const mapBase = Math.min(rafChaos, rafClosed);
-  const mapMax = Math.max(rafChaos, rafClosed);
-  if (mapMax - mapBase > Math.max(20, mapBase * 0.5)) throw new Error(`baseline map tidak stabil: ${rafChaos} vs ${rafClosed}`);
-  if (rafChaos > rafOpen) throw new Error(`rAF saat pipeline open (${rafOpen}) < map-only (${rafChaos}) — partikel tidak menambah loop?`);
-  log('raf_audit', 'partikel hanya saat tab pipeline terbuka; tutup/tab lain = baseline map (tanpa rAF permanen baru)');
-  // → rAF tambahan hanya saat panel+tab pipeline aktif; tutup = baseline map.
-  //   Streaming chart KPI memang tanpa rAF (gambar on-data).
+  if (canvasAfterTab.length !== 0) throw new Error('canvas pipeline tidak unmount saat tab diganti');
+  if (tabsAfterClose.length !== 0) throw new Error('konten panel tidak unmount saat ditutup');
+  log('raf_audit', 'partikel hanya saat tab pipeline terbuka (piksel bergerak); unmount saat tab lain/panel tutup — tanpa rAF permanen baru');
+  // Streaming chart KPI memang tanpa rAF (gambar on-data saat polling 2 Hz).
 
-  await page.screenshot({ path: '/tmp/kilo/phase04-deck-live.png' });
+  await page.screenshot({ path: '/out/phase04-deck-live.png' });
 
   // ---- reduced motion: diagram statis, tanpa shake ----
   const ctx2 = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
@@ -202,7 +207,7 @@ try {
   }
 
   log('console_errors', consoleErrors.length === 0 ? '0' : JSON.stringify(consoleErrors));
-  await page.screenshot({ path: '/tmp/kilo/phase04-final.png' });
+  await page.screenshot({ path: '/out/phase04-final.png' });
 } finally {
   await browser.close();
 }
