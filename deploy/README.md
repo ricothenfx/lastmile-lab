@@ -100,6 +100,37 @@ git push main
   diretas oleh tag; simpan 3 tag terakhir).
 - Zero-downtime target: satu service diganti satu waktu (`up -d --no-deps <svc>`).
 
+### 4.0 Deploy otomatis & satu perintah (Fase 6)
+
+```
+git push main (apps/services/** berubah)
+  └─► workflow `images`: build 9 image → push ghcr.io/ricothenfx/lastmile-*
+        └─► job `deploy`: SSH ke VPS → scripts/deploy.sh
+              = cek load → compose pull → up -d (profile sim + chaos) → curl /healthz
+```
+
+**Prasyarat sekali (aksi pemilik akun GitHub):**
+
+```bash
+# 1. Buat keypair khusus deploy (JANGAN pakai key personal) + pasang public key
+#    di ~/.ssh/authorized_keys VPS.
+# 2. Set secret repo (repo lastmile-lab → Settings → Secrets and variables → Actions):
+gh secret set DEPLOY_SSH_KEY  < ~/.ssh/<file key privat deploy>
+gh secret set DEPLOY_SSH_HOST < hostname / IP publik VPS>
+gh secret set DEPLOY_SSH_USER < rico>
+```
+
+- Tanpa `DEPLOY_SSH_KEY`, job `deploy` **SKIP dengan warning — CI tetap hijau**
+  (auto-deploy tinggal aktif begitu secret dipasang; tidak ada perubahan workflow lagi).
+- Deploy manual satu perintah (jalur yang sama persis dengan job deploy):
+
+```bash
+scripts/deploy.sh                                # dijalankan di VPS
+DEPLOY_SSH_HOST=rico@<host> scripts/deploy.sh    # dari mesin lain (SSH)
+```
+
+- Job deploy juga bisa dipicu manual: Actions → images → Run workflow.
+
 ### 4.1 Mode operasi stack (Fase 2)
 
 ```bash
@@ -144,7 +175,7 @@ docker compose -p lastmile -f deploy/compose.yaml -f deploy/compose.pipeline.yam
 - Metrik pipeline (JSON): `GET :3010/api/metrics` (agregasi ingestion/consumer/
   loadgen) atau per service `/metrics` di jaringan internal.
 
-## 5. Caddy (DRAFT sampai Fase 6)
+## 5. Caddy (AKTIF — terverifikasi 2026-10-01)
 
 Caddy produksi = container `turnaround-prod-caddy-1` (ports 80/443), config milik stack
 turnaround-prod. Sentuhan yang sah:
@@ -153,6 +184,30 @@ turnaround-prod. Sentuhan yang sah:
 2. Reload TANPA restart: `docker exec turnaround-prod-caddy-1 caddy reload --config <path>`
    (verifikasi path config dengan `docker inspect` dulu).
 3. `docker exec turnaround-prod-caddy-1 caddy validate --config <path>` SEBELUM reload.
+
+**Status Fase 6:** blok `api.` + `ws.` terpasang & reload (log Fase 1); DNS pemilik
+aktif; sertifikat terbit otomatis (ACME) — terverifikasi dari internet:
+
+```
+curl https://api.lastmile-lab.ricothen.com/healthz  → 200 (api-gateway)
+curl https://ws.lastmile-lab.ricothen.com/healthz   → 200 (ws-gateway)
+```
+
+## 5.5 Monitoring eksternal — UptimeRobot (setup pemilik, ±5 menit)
+
+1. Daftar gratis di uptimerobot.com (paket Free: 50 monitor, interval 5 menit).
+2. Add New Monitor → **HTTP(s)**, interval 5 menit:
+   - `api-healthz` → `https://api.lastmile-lab.ricothen.com/healthz`
+     (harap 200 + JSON `{"ok":true,...}` — liveness api-gateway; bukan cukup
+     TCP, karena /healthz juga mem-probe rider-sim).
+   - Opsional: `ws-healthz` → `https://ws.lastmile-lab.ricothen.com/healthz`;
+     `frontend` → `https://lastmile-lab.ricothen.com` (aktif setelah deploy Vercel).
+3. Alert kontak: email pemilik (default). Keyword monitor (opsional): `\"ok\":true`
+   agar 200 dengan body aneh pun dianggap down.
+4. Timeout 30 s; jangan aktifkan "port monitoring" — cukup HTTP(s).
+
+Health internal 24 jam: semua service expose `/healthz` (§7); UptimeRobot memantau
+sisi internet (Caddy → api-gateway) — titik fail paling awal yang dilihat pengunjung.
 
 ## 6. DNS (action items pemilik domain)
 
@@ -174,3 +229,19 @@ turnaround-prod. Sentuhan yang sah:
 
 - `deploy/.env` (gitignored): `LASTMILE_PG_PASSWORD`, dst.
 - Template: `deploy/.env.example`. Tidak ada secret yang pernah masuk git.
+
+## 9. Pemeriksaan keamanan (Fase 6)
+
+- **Secret scan**: guard CI (ci.yaml — pola token/privkey) + scan lokal bersih;
+  `deploy/.env` gitignored & tidak pernah di-track.
+- **CORS**: api-gateway mengizinkan `GET, POST, OPTIONS` dari `*` — cukup untuk UI
+  publik; tidak ada cookie/credential lintas origin.
+- **Endpoint mutasi publik** (`/api/control/*`, `/api/lab/run`, `/api/chaos/kill`,
+  `/api/demo/play|stop`): dibiarkan publik TANPA auth — keputusan risiko + mitigasi
+  + jalur naik terdokumentasi di **ADR D23** (BLUEPRINT.md). Blast radius dibatasi
+  mekanis: allowlist chaos, satu duel bersamaan, satu demo aktif, self-heal.
+- **Rate limit global**: tidak ada (disengaja, lihat D23); endpoint berat sudah
+  self-limit (lab 1 duel @ `cpus: 1.0`).
+- **Surface internal**: order-ingestion/consumer/redpanda/postgres/redis TIDAK
+  dipublish ke host; hanya api/ws/sim-control di-publish (loopback atau IP gateway
+  Caddy), dua yang terakhir hanya di-proxy Caddy subdomain masing-masing.
