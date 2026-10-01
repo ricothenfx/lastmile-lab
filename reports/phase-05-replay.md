@@ -12,12 +12,11 @@
 `model.Snapshot` tidak berubah (nol field baru). Blob JSON per frame dikompresi gzip sekali
 saat direkam (storage), keputusan dispatch ikut direkam (dedupe by seq, cap 8 000).
 
-| Ukuran buffer (terukur) | Nilai |
+| Ukuran buffer (terukur, ring PENUH steady-state) | Nilai |
 |---|---|
-| Frame per 15 menit @ 5 Hz | 4 500 (cap) + pagar byte 24 MiB |
-| Storage ring terukur | 9,0 MiB gzip @ 3 583 frame (~2,5 KB/frame @ 100 rider + ±40 order) |
-| Estimasi ring penuh | ±11–12 MiB gzip (unit test: 4 500 frame raw 20,7 MB → 4,6 MB @ tanpa order) |
-| Keputusan terekam | 244 @ 11 menit (cap 8 000 ≈ 2 MB struct) |
+| Frame per 15 menit @ 5 Hz | **4 500 / 4 500 (cap tercapai)**, retensi 860 s, eviksi FIFO aktif |
+| Storage ring terukur | **11,9 MiB gzip** @ 4 500 frame (~2,6 KB/frame @ 100 rider + ±40 order) |
+| Keputusan terekam | **591** @ 14 menit (cap 8 000 ≈ 2 MB struct) |
 | RSS rider-sim steady | **46,4 MiB / 160 MiB** (naik dari 17,6 MiB saat kosong) |
 | Dump via api-gateway | 8,63 MB gzip ⇔ 29,9 MB JSON (±4 380 frame), `Content-Encoding: gzip` passthrough |
 
