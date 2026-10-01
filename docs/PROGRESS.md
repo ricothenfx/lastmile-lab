@@ -5,18 +5,20 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** 4 — KPI Command Deck + System Health + chaos
-  (spec: `docs/PHASES/phase-04.md`)
-- **Kondisi:** Fase 3 SELESAI — 4 strategi dispatch deterministik di `pkg/dispatch`
-  (FIFO baseline + Batching/Zone/Optimal Hungarian murni Go, ADR D17), p99 keputusan
-  **2,6–13,1 ms** @ 100×100 (target < 50 ms, `reports/phase-03-bench.md`), Strategy
-  Lab duel A/B adil (satu generator → dua engine, ADR D18) via service
-  `strategy-lab` (:4205 internal) + API `/api/lab/*` + panel UI (peta kembar,
-  tabel delta, histogram bin bersama, export JSON). 8 image backend di GHCR.
-  VPS berjalan mode demo (profile `sim`), strategy-lab healthy.
-- **Langkah berikutnya:** kick-off Fase 4 (baca AGENTS → PROGRESS → ROADMAP →
-  `PHASES/phase-04.md`): KPI Command Deck + System Health + chaos injector;
-  tinjau keputusan Grafana/Prometheus (D16) di awal fase.
+- **Fase aktif:** 5 — Replay engine + Golden Demo presets + polish motion
+  (spec: `docs/PHASES/phase-05.md`)
+- **Kondisi:** Fase 4 SELESAI — KPI Command Deck (8 kartu live dari metrik
+  nyata + streaming chart 2 Hz on-data + SLO gauge 4 target), System Health
+  (pipeline partikel + grid node + health events), chaos injector :4206
+  (allowlist 7 container stateless `lastmile-*`, kill = SIGTERM PID 1 via exec —
+  ADR D19 rev. 3, self-heal restart policy terukur), Incident Timeline +
+  MTTD/MTTR/error budget. Eksperimen nyata: 4 kill → MTTD 0,81–1,30 s ·
+  MTTR 1,98–3,02 s; E4 zero-loss 5 460 = 5 460 saat consumer di-kill
+  (`reports/phase-04-chaos.md`). ADR D16 ditinjau: Prometheus/Grafana TIDAK
+  dipasang (budget RAM — metrik JSON dipertahankan). 9 image di GHCR.
+- **Langkah berikutnya:** kick-off Fase 5 (baca AGENTS → PROGRESS → ROADMAP →
+  `PHASES/phase-05.md`): replay engine (scrub timeline + inspect rider),
+  2–3 Golden Demo presets, audit motion/konsistensi token, responsive.
 - **Blokir/tergantung user:** none untuk koding. GO-LIVE publik tetap langkah
   pemilik domain/akun (DNS `ws.`/`api.` → IP VPS; auth Vercel) — bukan blokir fase.
 
@@ -38,6 +40,56 @@
    tidak berubah; playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-01 — Fase 4: KPI Command Deck + System Health + chaos (sesi 5)
+
+- **KPI dari metrik nyata (ADR D20)**: engine dapat ring KPI fixed-cap
+  (512 delivery terakhir + wall-clock tiap panggilan `Strategy.Assign`) —
+  instrumentasi murni, determinisme same-seed tetap diuji; `model.Snapshot`
+  dan `Engine.Metrics()` tidak disentuh. rider-sim expose `/internal/metrics`,
+  api-gateway merangkai `GET /api/kpi` (p50/p95 delivery, p99 dispatch,
+  utilisation, cost/order, orders/menit rolling, queue, lag pipeline, SLO,
+  grid healthz cache 2 s, error budget dari chaos) dengan cache 400 ms agar
+  polling UI 2 Hz tidak menghajar upstream. Nilai tak terukur = `null` → UI "—".
+- **SLO eksplisit**: p95 delivery < 360 s; zero message loss (lag 0 + err 0);
+  grid health core up; availability ≥ 99,9% (budget 0,1%). Kartu bergetar
+  halus saat langgar (mati saat reduced-motion).
+- **D16 ditinjau ulang**: Prometheus :9091 + Grafana :3030 TIDAK dipasang —
+  +384 MiB limit mendorong stack ≥ 2,17 GB > anggaran keras 2 GB; metrik JSON
+  dipertahankan, alasannya di ADR (UI Control Room adalah layer observability
+  fase ini).
+- **Chaos injector `chaos` :4206** (profile `chaos`, 64 MiB, internal saja):
+  allowlist eksplisit 7 service stateless `lastmile-*` (infra ber-state &
+  container lain → 403; unit test deny), monitor healthz 1 Hz + flap
+  suppression 2 kegagalan, incident {t_start, t_detect, t_recover} persist ke
+  volume. Kill = **SIGTERM ke PID 1 via Docker exec API** — dua fakta Docker
+  29.8.1 diverifikasi di VPS: endpoint `/kill` TIDAK memicu restart policy dan
+  PID 1 kebal SIGKILL dari dalam namespace (ADR D19 rev. 3). Self-heal = murni
+  restart policy `unless-stopped` (chaos tidak pernah restart manual).
+- **Eksperimen chaos nyata** (`reports/phase-04-chaos.md`): E1 rider-sim
+  MTTD 811 ms / MTTR 2 035 ms · E2 ws-gateway 1 295/1 986 · E3 api-gateway
+  1 139/3 017 · E4 dispatch-consumer saat 300/menit spike ×10: 1 073/1 982,
+  **zero loss 5 460 ack == 5 460 baris DB**, topik habis, 0 error.
+  Error budget jendela eksperimen: availability 99,69% vs SLO 99,9% →
+  EXCEEDED (jujur — 4 kill dalam 13 menit; operasi normal = 100%).
+- **UI (kriteria pemblokir terpenuhi, `reports/phase04-*.png`)**: KPI Command
+  Deck (kartu mono tabular + area chart canvas on-data 2 Hz + SLO gauge),
+  System Health (pipeline canvas — partikel hanya rAF saat panel terbuka,
+  bukti rAF audit: 140/2 s terbuka vs 70-73/2 s baseline map — grid node +
+  health events + tab CHAOS dengan tombol konfirmasi 2 langkah + incident
+  timeline MTTD/MTTR), TopBar ticker incidents, responsive 1440/1024/768,
+  reduced-motion penuh, console error 0, fallback "—" tanpa backend.
+  Verifikasi headless: `reports/phase-04-ui-verify.mjs`.
+- **CI/CD**: images GHCR +1 (total **9**, termasuk `lastmile-chaos`);
+  gofmt/vet/test/race hijau; web typecheck+build hijau. Ram stack
+  **1.856 MiB limit ≤ 2 GB** (chaos 64 MiB). PORTS.md: 4206 (container-only).
+- **Bug ditemukan & diperbaiki saat verifikasi** (3 iterasi deploy→uji):
+  API-kill Docker tidak memicu restart policy → exec SIGTERM PID 1 (ADR D19
+  rev. 3); PID 1 kebal SIGKILL dari dalam namespace → SIGTERM (handler Go);
+  probe in-flight saat kill menutup incident prematur → incident kill butuh
+  bukti gagal→pulih (3 OK beruntun = pulih sub-probe). Semua masuk unit test.
+- Stack VPS kembali mode demo (profile `sim` + `chaos`) setelah eksperimen;
+  pipeline dihentikan; tidak ada stack lain yang disentuh.
 
 ### 2026-09-30 — Fase 3: Dispatch 4 strategi + Strategy Lab (sesi 4)
 

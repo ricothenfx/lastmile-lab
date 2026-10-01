@@ -12,7 +12,7 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 | 1 | Simulasi inti + Live Ops Map | ✅ |
 | 2 | Order ingestion + load generator + Surge Console dasar | ✅ |
 | 3 | Dispatch engine 4 strategi + Strategy Lab | ✅ |
-| 4 | KPI Command Deck + System Health + chaos | ⬜ |
+| 4 | KPI Command Deck + System Health + chaos | ✅ |
 | 5 | Replay engine + Golden Demo presets + polish motion | ⬜ |
 | 6 | Hardening produksi + monitoring + README story + artikel | ⬜ |
 | 7 | (Opsional) AI Ops Copilot & Plan Advisor | ⬜ |
@@ -86,12 +86,24 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 
 ## Fase 4 — KPI Deck + System Health + chaos
 
-**DoD:**
-- [ ] KPI Command Deck lengkap (kartu live, streaming chart, SLO gauge)
-- [ ] System Health: visualisasi pipeline, grid node, autoscaling/health events
-- [ ] Chaos injector: kill node saat trafik — self-heal terlihat di UI + Incident Timeline
-- [ ] MTTD/MTTR/error budget tercatat dari eksperimen (reports/)
-- [ ] Commit & push
+**DoD:** (bukti angka: `reports/phase-04-chaos.md` + `reports/phase04-*.png`)
+- [x] KPI Command Deck: kartu live + streaming chart + SLO gauge — angka dari
+      metrik nyata (ring engine + counters pipeline + incident chaos; bukan
+      dekorasi), mono tabular, fallback "—" tanpa backend
+- [x] System Health: pipeline visual (partikel order→Kafka→consumer→UI) +
+      grid node (healthz polling, cache 2 s) + health events
+- [x] Chaos injector: kill node saat trafik → self-heal terlihat di UI +
+      Incident Timeline; allowlist eksplisit 7 container stateless
+      `lastmile-*` (sisanya 403; infra ber-state di luar allowlist)
+- [x] MTTD/MTTR/error budget tercatat dari eksperimen nyata: 4 kill
+      (MTTD 0,81–1,30 s · MTTR 1,98–3,02 s), E4 zero-loss 5 460 = 5 460
+      saat consumer di-kill @300/menit spike ×10
+- [x] Kualitas UI: token-only, kontras AA, reduced-motion penuh, canvas
+      on-demand (chart on-data, partikel rAF hanya saat panel terbuka —
+      bukti `phase-04-ui-verify.mjs`, rAF audit + console 0)
+- [x] Semua service/endpoint baru punya health + limit RAM (chaos 64 MiB;
+      ram stack 1.856 MiB ≤ 2 GB) + CI hijau (ci + images, 9 image)
+- [x] Commit & push
 
 ## Fase 5 — Replay + Golden Demo + polish
 
