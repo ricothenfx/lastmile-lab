@@ -38,6 +38,13 @@ func copilotProxy(copilotURL string, client *http.Client) http.HandlerFunc {
 		}
 		resp, err := client.Do(req)
 		if err != nil {
+			// Service off/down = fitur tersembunyi — capabilities TIDAK pernah
+			// error (compose selalu men-set COPILOT_URL; DNS mati saat profile
+			// copilot off adalah kondisi normal, bukan kegagalan).
+			if strings.HasSuffix(r.URL.Path, "/capabilities") {
+				writeJSON(w, http.StatusOK, map[string]bool{"enabled": false})
+				return
+			}
 			http.Error(w, `{"error":"copilot unreachable"}`, http.StatusBadGateway)
 			return
 		}

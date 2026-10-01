@@ -35,8 +35,10 @@ apps/services/copilot/            (:4207, profile compose `copilot` — OFF-by-d
 
 - **Proxy api-gateway** (`copilot.go`): tanpa `COPILOT_URL` → `/api/copilot/capabilities`
   tetap menjawab `{"enabled":false}` (200 — UI tidak menebak dari 404); endpoint lain 503
-  `copilot_disabled`. Dengan `COPILOT_URL` → passthrough method+body (client khusus 45 s —
-  advise = LLM 8 s + dry-run duel).
+  `copilot_disabled`. Compose selalu men-set `COPILOT_URL`, sehingga saat profile copilot
+  OFF (DNS `copilot` mati = kondisi normal) capabilities **juga** dijawab
+  `{"enabled":false}` — deteksi UI tidak pernah melihat 502. Dengan service hidup →
+  passthrough method+body (client khusus 45 s — advise = LLM 8 s + dry-run duel).
 - **Rate limit**: token bucket di memori, default 6/menit per endpoint (spec: sederhana,
   bukan auth besar — exposure ikut aturan D23).
 - **Ram stack**: mode demo TIDAK berubah (copilot off) — tetap 1 888 MiB ≤ 2 GB.
@@ -49,7 +51,7 @@ Environment tanpa `OPENAI_API_KEY` (semua yang dijalankan di sesi ini):
 
 | Cek | Hasil |
 |---|---|
-| `GET /api/copilot/capabilities` (gateway tanpa COPILOT_URL) | `200 {"enabled":false}` |
+| `GET /api/copilot/capabilities` (gateway tanpa COPILOT_URL, **atau service off/down**) | `200 {"enabled":false}` |
 | `GET /capabilities` (service copilot asli, container smoke di network lastmile) | `{"enabled":false}` (healthz ok, graph 9 459 node) |
 | `POST /advise` / `POST /ask` tanpa key | `503 {"error":"llm_disabled — copilot tanpa OPENAI_API_KEY"}` |
 | UI headless: node `[data-testid="copilot-advisor"] / [data-testid="copilot-ask"]` | **0 node** — teks "ADVISOR"/"COPILOT" tidak ada di body |

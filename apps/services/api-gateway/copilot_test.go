@@ -56,10 +56,19 @@ func TestCopilotProxyEnabledPassthrough(t *testing.T) {
 
 func TestCopilotProxyUpstreamDown(t *testing.T) {
 	h := copilotProxy("http://127.0.0.1:1", &http.Client{Timeout: time.Second})
+	// capabilities saat service down → tetap 200 {"enabled":false} (fitur
+	// tersembunyi adalah kondisi normal — compose selalu men-set COPILOT_URL).
 	req := httptest.NewRequest(http.MethodGet, "/api/copilot/capabilities", nil)
 	w := httptest.NewRecorder()
 	h(w, req)
-	if w.Code != http.StatusBadGateway {
-		t.Fatalf("upstream mati harus 502, dapat %d", w.Code)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"enabled":false`) {
+		t.Fatalf("capabilities saat down harus 200 {\"enabled\":false}, dapat %d %s", w.Code, w.Body.String())
+	}
+	// endpoint lain saat down → 502.
+	req2 := httptest.NewRequest(http.MethodPost, "/api/copilot/advise", strings.NewReader("{}"))
+	w2 := httptest.NewRecorder()
+	h(w2, req2)
+	if w2.Code != http.StatusBadGateway {
+		t.Fatalf("advise saat down harus 502, dapat %d", w2.Code)
 	}
 }
