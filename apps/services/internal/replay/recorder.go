@@ -3,10 +3,10 @@
 // Recorder menyimpan ring frame snapshot berbudget tetap (default 15 menit
 // @ 5 Hz) di memori rider-sim: setiap frame di-marshal JSON sekali lalu
 // dikompresi gzip per frame (blob ~2 KB dari ~13 KB @ 100 rider) sehingga
-// ring penuh ≈ 10 MB — bukan 60 MB. Blob per-frame adalah anggota gzip
-// mandiri; JSON array respons dirakit dengan menggabungkan anggota
-// (header, blob, ",", blob, … footer) di bawah Content-Encoding: gzip —
-// multi-member gzip stream valid dan didekompresi transparan oleh browser.
+// ring penuh ≈ 8–10 MB — bukan 60 MB. Saat dilayani, dump dirakit menjadi
+// SATU anggota gzip tunggal (header + frame + footer didekompresi-rekompresi
+// on-the-fly, streaming): Chromium menghentikan stream gzip multi-member
+// setelah anggota pertama, jadi respons browser wajib satu anggota.
 //
 // Keputusan dispatch ikut direkam (dedupe by seq, bounded) supaya inspect
 // rider bisa menampilkan ALASAN keputusan pada titik waktu scrub.
@@ -235,40 +235,37 @@ func (r *Recorder) WriteDump(w io.Writer, gzipOK bool) error {
 		return err
 	}
 
-	// Satu anggota gzip baru per potongan meta — gzip.Writer tidak bisa
-	// dipakai ulang setelah Close; w tetap sama sehingga anggota menyambung.
-	writeMember := func(p []byte) error {
-		mw, err := gzip.NewWriterLevel(w, gzipLevel)
-		if err != nil {
-			return err
-		}
-		if _, err := mw.Write(p); err != nil {
-			return err
-		}
-		return mw.Close()
+	// SATU anggota gzip untuk seluruh dokumen. (Penting: Chromium
+	// menghentikan stream setelah anggota gzip PERTAMA — multi-member
+	// diterima curl/Go tetapi bukan browser, jadi dump tidak boleh
+	// digabung dari beberapa anggota.) Blob per-frame didekompresi
+	// on-the-fly ke satu gzip.Writer — streaming, tanpa buffer penuh.
+	zw, err := gzip.NewWriterLevel(w, gzipLevel)
+	if err != nil {
+		return err
 	}
 	// header: '{"meta":…,"frames":['
 	h := append(bytes.TrimSuffix(append([]byte(nil), head...), []byte("}")), []byte(`,"frames":[`)...)
-	if err := writeMember(h); err != nil {
+	if _, err := zw.Write(h); err != nil {
 		return err
 	}
-	comma := gzBytes([]byte(","))
 	for i, f := range frames {
-		// Tulis mentah ke w — blob sudah anggota gzip mandiri (bukan lewat zw,
-		// yang akan mengompresi ulang di dalam anggota berjalan).
-		if _, err := w.Write(f.GZ); err != nil {
-			return err
-		}
-		if i < len(frames)-1 {
-			if _, err := w.Write(comma); err != nil {
+		if i > 0 {
+			if _, err := io.WriteString(zw, ","); err != nil {
 				return err
 			}
+		}
+		if err := writeGunzip(zw, f.GZ); err != nil {
+			return err
 		}
 	}
 	// footer: '],"decisions":[…]}'
 	foot := append([]byte(`],"decisions":`), decJSON...)
 	foot = append(foot, '}')
-	return writeMember(foot)
+	if _, err := zw.Write(foot); err != nil {
+		return err
+	}
+	return zw.Close()
 }
 
 func writeGunzip(w io.Writer, blob []byte) error {

@@ -121,6 +121,10 @@ func TestWriteDumpGzipRoundTrip(t *testing.T) {
 	if err := r.WriteDump(&buf, true); err != nil {
 		t.Fatalf("WriteDump: %v", err)
 	}
+	// Wajib SATU anggota gzip (Chromium berhenti setelah anggota pertama).
+	if n := bytes.Count(buf.Bytes(), []byte{0x1f, 0x8b}); n != 1 {
+		t.Fatalf("dump berisi %d anggota gzip, want 1", n)
+	}
 	raw := gunzipAll(t, buf.Bytes())
 
 	var dump struct {
