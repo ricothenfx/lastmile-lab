@@ -60,6 +60,10 @@ export default function OpsApp() {
           <SystemHealth kpiState={kpiState} />
           {/* dock kontrol bawah (Fase 5): Golden Demo + Replay & Inspect */}
           <div className="pointer-events-none absolute bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2">
+            {/* atribusi data wajib (ODbL) — dipindah dari footer lama */}
+            <span className="hidden font-mono text-[9px] tracking-[0.06em] text-ink-muted lg:inline">
+              data © OpenStreetMap
+            </span>
             <DemoLauncher />
             <ReplayPanel streamRef={streamRef} overrideRef={overrideRef} />
           </div>

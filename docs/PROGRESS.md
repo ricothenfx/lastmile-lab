@@ -5,20 +5,21 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** 5 — Replay engine + Golden Demo presets + polish motion
-  (spec: `docs/PHASES/phase-05.md`)
-- **Kondisi:** Fase 4 SELESAI — KPI Command Deck (8 kartu live dari metrik
-  nyata + streaming chart 2 Hz on-data + SLO gauge 4 target), System Health
-  (pipeline partikel + grid node + health events), chaos injector :4206
-  (allowlist 7 container stateless `lastmile-*`, kill = SIGTERM PID 1 via exec —
-  ADR D19 rev. 3, self-heal restart policy terukur), Incident Timeline +
-  MTTD/MTTR/error budget. Eksperimen nyata: 4 kill → MTTD 0,81–1,30 s ·
-  MTTR 1,98–3,02 s; E4 zero-loss 5 460 = 5 460 saat consumer di-kill
-  (`reports/phase-04-chaos.md`). ADR D16 ditinjau: Prometheus/Grafana TIDAK
-  dipasang (budget RAM — metrik JSON dipertahankan). 9 image di GHCR.
-- **Langkah berikutnya:** kick-off Fase 5 (baca AGENTS → PROGRESS → ROADMAP →
-  `PHASES/phase-05.md`): replay engine (scrub timeline + inspect rider),
-  2–3 Golden Demo presets, audit motion/konsistensi token, responsive.
+- **Fase aktif:** 6 — Produksi (spec: `docs/PHASES/phase-06.md`)
+- **Kondisi:** Fase 5 SELESAI — Replay engine (ring 15 menit @ 5 Hz di rider-sim,
+  gzip satu-anggota, scrub akurasi ≤ 0,2 s, inspect rider/order + alasan keputusan
+  dispatch dari ring decisions), 3 Golden Demo presets ±90 s via api-gateway
+  (surge/weather sim-control + kill chaos yang sudah ada; eksekusi end-to-end di UI
+  headless: 7/7 langkah, kill → incident chaos-kill MTTD 642 ms → pulih otomatis),
+  frontend hidup 100% tanpa backend (fixture fase 1 lolos uji backend-matikan),
+  reduced-motion + responsive 1440/1024/768 terverifikasi. Dua bug berat ditemukan
+  & diperbaiki saat verifikasi: gzip multi-member ditolak Chromium (dump kini satu
+  anggota) dan CSS maplibre menimpa utility `absolute` kontainer peta (peta hitam).
+  Stack: 1 888 MiB limit ≤ 2 GB; sim-control kini ikut profile `sim` (aktuator demo).
+  Bukti: `reports/phase-05-replay.md`.
+- **Langkah berikutnya:** kick-off Fase 6 (baca AGENTS → PROGRESS → ROADMAP →
+  `PHASES/phase-06.md`): go-live produksi (DNS + Vercel = aksi pemilik), CI/CD deploy
+  otomatis, README akhir + artikel teknis, uji beban ringan + pemeriksaan keamanan.
 - **Blokir/tergantung user:** none untuk koding. GO-LIVE publik tetap langkah
   pemilik domain/akun (DNS `ws.`/`api.` → IP VPS; auth Vercel) — bukan blokir fase.
 
@@ -40,6 +41,55 @@
    tidak berubah; playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-01 — Fase 5: Replay engine + Golden Demo + polish (sesi 6)
+
+- **Replay engine (ADR D21)**: perekam sesi di rider-sim (`internal/replay`) — ring
+  berbudget 15 menit @ 5 Hz (4 500 frame + pagar 24 MiB), tiap snapshot di-marshal JSON
+  sekali lalu dikompresi gzip per frame (terukur ~2,5 KB/frame @ 100 rider; ring penuh
+  ±11–12 MiB; RSS rider-sim 46,4 MiB / limit 160 MiB — naik dari 128 MiB, stack kini
+  **1 888 MiB ≤ 2 GB**). Goroutine perekam terpisah — **engine tidak disentuh**,
+  determinisme same-seed tetap diuji, kontrak `model.Snapshot` tidak berubah. Endpoint:
+  `GET /api/replay/sessions` + `/api/replay/sessions/{id}` (dump meta + frames + ring
+  keputusan dispatch, dedupe by seq, cap 8 000) via proxy gzip-passthrough api-gateway.
+- **Dump = satu anggota gzip tunggal**: versi awal menggabungkan anggota gzip per frame
+  (valid untuk curl/Go) — **Chromium menghentikan stream setelah anggota pertama** →
+  frontend dapat JSON terpotong. Fix `65daada` (dekompresi-rekompresi streaming saat
+  dilayani) + unit test assert tepat 1 anggota gzip.
+- **Replay & Inspect UI (kriteria pemblokir terpenuhi, `reports/phase05-*.png`)**:
+  scrub timeline 0–durasi buffer (akurasi ≤ 0,2 s @ 5 Hz, binary search pola MiniReplay),
+  PLAY/PAUSE ×1/×4/×16, marker incident chaos di timeline (pemetaan wall→sim t),
+  **klik rider → kartu status + order dibawa + pickup/dropoff + ALASAN keputusan dispatch
+  dari ring decisions** (contoh terekam: "fifo: antrean tertua (umur 0s) → rider r40 idle
+  terdekat (1011 m, haversine)"), klik order → status + umur + rider. **Tanpa rAF idle
+  baru**: playhead dimajukan dari wall-clock di dalam loop rAF peta yang sudah ada;
+  pause/scrub render on-demand (guard key frame + flag dirty); reduced-motion = PLAY
+  hilang, scrub statis; responsive 1440/1024/768; console error 0.
+- **Golden Demo (ADR D22)**: orchestrator di api-gateway (`demo.go` — narasi satu file)
+  memakai kontrol yang SUDAH ada: surge/weather → sim-control, kill → chaos injector
+  (ADR D19; incident chaos-kill tetap satu sumber kebenaran di Incident Timeline).
+  3 preset ±90 s (dinner-rush 7 langkah incl. kill rider-sim, blackout-drill 3 kill,
+  rain-commute tanpa kill). Endpoint `/api/demo/presets|play|stop|state`; UI launcher
+  dock + banner narasi + STOP; tombol mati saat backend offline. **Eksekusi end-to-end
+  di UI headless**: 7/7 langkah tampil, langkah tepat di detik narasi
+  (t+0.3/12/36/54/64/74/86, selesai **tepat t+90.0s** — log api-gateway), kill → incident
+  `chaos-kill` MTTD 642 ms → app pulih otomatis ke LIVE; pengukuran langsung API:
+  dinner-rush 91,2 s, rain-commute 89,3 s.
+- **Fixture fase 1 tidak regresi** (uji backend dimatikan sungguhan — stop rider-sim +
+  ws-gateway + api-gateway): banner REPLAY MODE muncul, replay panel otomatis pakai
+  fixture (scrub T+00:22/00:45 jalan), tombol `▶ DEMO · OFFLINE` (mati), console error
+  0 aplikasi (connection-refused disaring sebagai expected).
+- **Bug berat #2 ditemukan & diperbaiki**: peta hitam total saat verifikasi — CSS
+  `.maplibregl-map { position: relative }` (maplibre-gl.css) menimpa utility Tailwind
+  `absolute` setelah urutan chunk CSS bergeser (penambahan modul baru) → kontainer peta
+  tinggi 0. Fix `668abf7`: `position: absolute` inline pada kontainer. Juga: ARIA
+  `role="menu"` pada dropdown demo menghilangkan semantik button → diganti popover + aria-label.
+- **Infra**: sim-control ikut profile `sim` (aktuator Golden Demo mode demo — RAM sudah
+  terhitung; hanya profile diperluas). rider-sim 128→160 MiB. Tanpa port host baru.
+- **CI/CD**: ci + images hijau di semua commit fase 5; deploy VPS: pull + up -d
+  (profile sim + chaos) — 7/7 kontainer lastmile healthy.
+- **Verifikasi**: `reports/phase-05-ui-verify.mjs` (mode utama + OFFLINE_MODE) —
+  ALL CHECKS PASSED kedua mode; laporan lengkap `reports/phase-05-replay.md`.
 
 ### 2026-10-01 — Fase 4: KPI Command Deck + System Health + chaos (sesi 5)
 

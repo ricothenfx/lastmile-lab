@@ -108,11 +108,18 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 ## Fase 5 — Replay + Golden Demo + polish
 
 **DoD:**
-- [ ] Replay engine: scrub timeline, inspect rider/order, alasan keputusan dispatch
-- [ ] 2–3 Golden Demo presets (▶ Play) dengan narasi 90 detik
-- [ ] Frontend tetap hidup 100% saat backend dimatikan (replay fallback)
-- [ ] Audit motion & visual 60fps; konsistensi token; responsive dasar (1440/1024/768)
-- [ ] Commit & push
+- [x] Replay engine: scrub timeline, inspect rider/order, alasan keputusan dispatch
+- [x] 2–3 Golden Demo presets (▶ Play) dengan narasi 90 detik
+- [x] Frontend tetap hidup 100% saat backend dimatikan (replay fallback)
+- [x] Audit motion & visual 60fps; konsistensi token; responsive dasar (1440/1024/768)
+- [x] Commit & push
+
+> **SELESAI 2026-10-01.** Ring replay 15 menit @ 5 Hz (9,0 MiB gzip terukur, RSS
+> rider-sim 46 MiB / limit 160 MiB — stack 1 888 MiB ≤ 2 GB); scrub akurasi ≤ 0,2 s;
+> inspect rider dengan alasan dispatch dari ring decisions; 3 preset Golden Demo ±90 s
+> (eksekusi end-to-end di UI headless: 7/7 langkah, kill rider-sim → incident chaos-kill
+> MTTD 642 ms, app pulih otomatis); fixture fase 1 tidak regresi (uji backend mati).
+> Bukti: `reports/phase-05-replay.md`.
 
 ## Fase 6 — Produksi
 

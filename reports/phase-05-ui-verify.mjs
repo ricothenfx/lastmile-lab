@@ -55,10 +55,12 @@ try {
     log('fixture_scrub', scrubOk ? 'ok' : fxPanel.match(/T\+\d+:\d+ \/ \d+:\d+/)?.[0] ?? '?');
     log('fixture_demo_offline', (await page.getByRole('button', { name: /▶ DEMO/i }).innerText()).includes('OFFLINE') ? 'tombol mati' : 'MASIH HIDUP?');
     await page.screenshot({ path: `${OUT}/phase05-fixture-offline.png` });
-    log('console_errors', consoleErrors.length === 0 ? 0 : consoleErrors.slice(0, 5).join(' | '));
+    // Koneksi ditolak adalah konsekuensi backend mati — bukan bug UI.
+    const appErrors = consoleErrors.filter(e => !/ERR_CONNECTION_REFUSED|WebSocket connection/i.test(e));
+    log('console_errors', appErrors.length === 0 ? 0 : appErrors.slice(0, 5).join(' | '));
     const fails = results.filter(([k, v]) => /GAGAL|HILANG|TIDAK|MASIH|KOSONG|\?\?$/.test(String(v)));
     console.log(fails.length ? `FAIL: ${fails.map(f => f.join('=')).join(', ')}` : 'ALL OFFLINE CHECKS PASSED');
-    process.exit(fails.length || consoleErrors.length ? 1 : 0);
+    process.exit(fails.length || appErrors.length ? 1 : 0);
   }
 
   // ================= MODE UTAMA (backend hidup) =================
