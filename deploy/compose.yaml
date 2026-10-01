@@ -138,7 +138,10 @@ services:
       PORT: "4201"
       ORDER_SOURCE: "internal"
       DISPATCH_STRATEGY: "fifo"
-      RIDERS: "60"
+      # 100 rider = kapasitas armada terukur ±25–30 order/menit (fase 3) —
+      # demand default 20/menit memberi headroom, SLO steady (p95 < 6 menit)
+      # terpenuhi di KPI Command Deck; surge ×10 tetap bisa melanggarnya.
+      RIDERS: "100"
       ORDER_RATE_PER_MIN: "20"
       SPEED_MPS: "5.5"
       TICK_HZ: "10"

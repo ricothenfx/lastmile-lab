@@ -178,7 +178,18 @@ docker compose -p lastmile -f compose.yaml -f compose.pipeline.yaml \
 docker compose -p lastmile --profile sim --profile chaos up -d
 ```
 
-## 8. Deny-list (uji negatif — di unit test & runtime)
+## 8. Tuning demo agar SLO steady terpenuhi
+
+Konfigurasi demo lama (60 rider vs demand 20/menit) terukur DI ATAS kapasitas
+armada — p95 delivery merambat > 6 menit sehingga SLO steady dari spec tidak
+pernah mungkin terpenuhi (expired 41% dari order). RIDERS dinaikkan 60 → 100
+(kapasitas terukur fase 3: ±25–30 order/menit untuk 100 rider). Hasil setelah
+ekuilibrium ±6 menit di stack live: p50 99 s · **p95 197 s < 360 s (SLO OK)** ·
+expired 0 · util 40% · idle 41 · p99 dispatch 0,19 ms · cost 0,69 km/order.
+Pelajaran KPI Deck: angka yang jujur membuat mis-konfigurasi terlihat — kartu
+p95 "merah" adalah apa yang menunjukkan masalah ini.
+
+## 9. Deny-list (uji negatif — di unit test & runtime)
 
 `POST /api/chaos/kill` untuk `postgres`, `redis`, `redpanda`, `chaos`, `loadgen`,
 `db-migrate`, `redpanda-init`, nama container stack lain (`turnaround-prod`,
