@@ -5,35 +5,42 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** 6 — Produksi (spec: `docs/PHASES/phase-06.md`)
-- **Kondisi:** Fase 5 SELESAI — Replay engine (ring 15 menit @ 5 Hz di rider-sim,
-  gzip satu-anggota, scrub akurasi ≤ 0,2 s, inspect rider/order + alasan keputusan
-  dispatch dari ring decisions), 3 Golden Demo presets ±90 s via api-gateway
-  (surge/weather sim-control + kill chaos yang sudah ada; eksekusi end-to-end di UI
-  headless: 7/7 langkah, kill → incident chaos-kill MTTD 642 ms → pulih otomatis),
-  frontend hidup 100% tanpa backend (fixture fase 1 lolos uji backend-matikan),
-  reduced-motion + responsive 1440/1024/768 terverifikasi. Dua bug berat ditemukan
-  & diperbaiki saat verifikasi: gzip multi-member ditolak Chromium (dump kini satu
-  anggota) dan CSS maplibre menimpa utility `absolute` kontainer peta (peta hitam).
-  Stack: 1 888 MiB limit ≤ 2 GB; sim-control kini ikut profile `sim` (aktuator demo).
-  Bukti: `reports/phase-05-replay.md`.
-- **Langkah berikutnya:** kick-off Fase 6 (baca AGENTS → PROGRESS → ROADMAP →
-  `PHASES/phase-06.md`): go-live produksi (DNS + Vercel = aksi pemilik), CI/CD deploy
-  otomatis, README akhir + artikel teknis, uji beban ringan + pemeriksaan keamanan.
-- **Blokir/tergantung user:** none untuk koding. GO-LIVE publik tetap langkah
-  pemilik domain/akun (DNS `ws.`/`api.` → IP VPS; auth Vercel) — bukan blokir fase.
+- **Fase aktif:** 7 (opsional) — AI Ops Copilot (spec: `docs/PHASES/phase-07.md`);
+  fase 1–6 selesai. Fase 7 boleh dilewati (opsional per ROADMAP).
+- **Kondisi:** Fase 6 SELESAI — go-live backend produksi: DNS pemilik aktif,
+  `api.`/`ws.` HTTPS hidup dari internet (healthz 200; WS upgrade TLS
+  terverifikasi end-to-end di UI headless yang dibangun dengan env domain
+  publik = konfigurasi Vercel). CI/CD penuh: job `deploy` di images.yaml
+  (skip-warning tanpa secret `DEPLOY_SSH_KEY`) + `scripts/deploy.sh` satu
+  perintah — siklus nyata push→build→image→pull+up+healthz di commit fase 6.
+  Uji beban 5 menit pasca go-live: zero loss (published=consumed=acked 4 261,
+  dup 0, 429 0, DB delta = sent persis; p50 301 ms / p99 2 487 ms pada host
+  load 5–7). RAM 1 888 MiB limit ≤ 2 GB (demo aktual ≈ 80 MiB). Keamanan: ADR
+  D23 (endpoint mutasi publik tanpa auth — risiko/mitigasi/jalur naik) + scan
+  bersih. Replay fallback terverifikasi di domain produksi (blokir browser +
+  stop backend sungguhan → REPLAY MODE → pulih LIVE). README final + artikel
+  `docs/blog/dispatch-explainability.md` + spec fase 7. Bukti:
+  `reports/phase-06-prod.md`.
+- **Langkah berikutnya:** (opsional) kick-off Fase 7 Copilot; atau polish
+  portofolio. Sisa aksi pemilik (bukan blokir repo): import Vercel + assign
+  domain frontend; 3 secret GitHub (`DEPLOY_SSH_KEY/HOST/USER`) untuk
+  auto-deploy; aktivasi monitor UptimeRobot (runbook §5.5); verifikasi 60fps
+  di laptop fisik (prosedur di bawah).
+- **Blokir/tergantung user:** none untuk koding. Go-live frontend Vercel
+  tetap langkah pemilik akun — backend `api.`/`ws.` sudah LIVE.
 
 ## Langkah Sisa Go-Live (butuh akses pemilik — bukan blokir fase)
 
-1. **DNS** (pemilik domain ricothen.com): `ws.lastmile-lab` → A record IP VPS;
-   `api.lastmile-lab` → A record IP VPS; `lastmile-lab` → CNAME `cname.vercel-dns.com`.
-2. **Caddy:** blok `deploy/caddy/lastmile-lab.caddy` SUDAH dipasang + reload
-   (lihat log). Verifikasi ulang setelah DNS aktif:
-   `curl https://ws.lastmile-lab.ricothen.com/healthz`.
-3. **Vercel:** import repo (root dir `apps/web`), set env `NEXT_PUBLIC_WS_URL=
-   wss://ws.lastmile-lab.ricothen.com/ws` & `NEXT_PUBLIC_API_URL=https://api.lastmile-
-   lab.ricothen.com`, lalu domain custom. Frontend tanpa WS → otomatis replay mode
-   (tidak pernah putih). Surge Console + Strategy Lab otomatis ikut via `api.` yang sama.
+1. **Vercel**: import repo (root dir `apps/web`), env `NEXT_PUBLIC_WS_URL=
+   wss://ws.lastmile-lab.ricothen.com/ws` & `NEXT_PUBLIC_API_URL=https://
+   api.lastmile-lab.ricothen.com`, assign domain `lastmile-lab.ricothen.com`.
+   ✅ DNS `lastmile-lab` → CNAME Vercel sudah aktif (verifikasi sesi fase 6).
+2. **Secret GitHub** (Settings → Secrets → Actions): `DEPLOY_SSH_KEY`
+   (keypair khusus deploy, publik ke authorized_keys VPS), `DEPLOY_SSH_HOST`,
+   `DEPLOY_SSH_USER` — begitu di-set, job `deploy` otomatis jalan tiap push
+   `apps/services/**`; tanpa itu job skip-warning (CI tetap hijau).
+3. **UptimeRobot**: ikuti `deploy/README.md` §5.5 (monitor `https://api.
+   lastmile-lab.ricothen.com/healthz`, interval 5 menit).
 4. **Verifikasi 60fps di laptop fisik** (kriteria DoD fase 1 — terpenuhi secara
    struktural; angka final di hardware target): buka app → DevTools Performance →
    CPU 4× throttle → rekam 15 s → harapkan p50 frame ≤ 16,7 ms. Fase 3 menambah dua
@@ -41,6 +48,52 @@
    tidak berubah; playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-01 — Fase 6: Produksi go-live + CI/CD penuh + README & artikel (sesi 7)
+
+- **Go-live backend produksi**: DNS pemilik aktif (`api.`/`ws.` → A 194.233.67.201;
+  `lastmile-lab` → CNAME Vercel). Caddy site block (dari fase 1) langsung hidup —
+  sertifikat ACME terbit; **healthz 200 dari internet** via
+  `https://api.lastmile-lab.ricothen.com/healthz` (0,10 s) & `ws.` (0,05 s).
+- **Verifikasi end-to-end jalur publik**: web app dibangun headless dengan env
+  domain produksi (`wss://ws.…/ws` + `https://api.…` — identik konfigurasi
+  Vercel) → LIVE LINK di Chromium headless: WS upgrade TLS + REST publik +
+  `/api/kpi` angka nyata + replay SESSION via `/api/replay/*` (3 231 frame) +
+  `demo/presets` 200. **Replay fallback di domain produksi terverifikasi dua
+  cara**: blokir domain dari browser (route.abort + routeWebSocket close) dan
+  **stop backend sungguhan** (healthz 502) — banner REPLAY MODE + tombol DEMO
+  OFFLINE, start ulang → LIVE kembali; console error 0 di luar expected.
+  Skrip: `reports/phase-06-ui-verify.mjs`, bukti `phase06-*.png` (4).
+- **CI/CD penuh**: workflow `images` + job `deploy` (SSH → `scripts/deploy.sh`
+  = cek load → `compose pull` → `up -d` profile sim+chaos → curl healthz).
+  Tanpa secret `DEPLOY_SSH_KEY` job SKIP-warning (CI hijau); setup 3 secret
+  didokumentasikan (`deploy/README.md` §4.0). Jalur satu perintah yang sama
+  dibuktikan nyata dari VPS pada commit fase 6 (siklus push→build→image→deploy).
+- **Uji beban ringan pasca go-live** (5 menit, kompos fase 2, seed 7, host
+  load 5–7): sent/acked 4 263/4 261, 429 = 0, error klien 0, p50 301 ms /
+  p99 2 487 ms; published = consumed = **4 261**, dup 0, DB delta window =
+  4 263 (row 503 tetap tertulis — at-least-once jujur, idempotency siaga);
+  66 assigned via pipeline (sisanya expire TTL — overload by design).
+  Stack kembali mode demo (pipeline/infra di-rm, volume pg_data dipertahankan,
+  ORDER_SOURCE=internal terverifikasi, 6/6 healthy).
+- **RAM ≤ 2 GB terverifikasi ulang**: demo aktual ≈ 80 MiB / limit 672 MiB
+  (6 kontainer); budget semua profile **1 888 MiB ≤ 2 GB** (docker stats +
+  inspect limits di `reports/phase-06-prod.md` §5).
+- **Monitoring & ketahanan**: UptimeRobot setup ±5 menit di runbook §5.5
+  (aktivasi akun = pemilik); log rotation json-file 10m×3 terverifikasi live.
+- **Keamanan**: scan bersih (CI guard + lokal), CORS GET/POST/OPTIONS `*`,
+  surface internal tidak dipublish; **ADR D23** — endpoint mutasi publik tanpa
+  auth dipertahankan (allowlist chaos, duel `cpus:1.0` satu-satu, self-heal;
+  jalur naik bearer token bila abuse nyata) + runbook §9.
+- **Konten etalase**: README final (arsitektur mermaid, screenshot hero,
+  tabel metrik terukur fase 1–6, "Try it", reproduksi compose/loadtest/lab/
+  chaos/replay, peta repo, prinsip) + artikel final
+  `docs/blog/dispatch-explainability.md` (replay/inspect/golden demo + angka
+  + 4 pelajaran) + spec `docs/PHASES/phase-07.md` (Copilot plugin adapter,
+  tanpa key = tersembunyi, dry-run simulator sebagai judge).
+- **Sisa aksi pemilik** (terdokumentasi, bukan blokir fase): import Vercel +
+  assign domain; 3 secret GitHub; aktivasi UptimeRobot; cek 60fps laptop
+  fisik. Semua di PROGRESS §"Langkah Sisa" & runbook.
 
 ### 2026-10-01 — Fase 5: Replay engine + Golden Demo + polish (sesi 6)
 

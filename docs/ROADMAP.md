@@ -13,8 +13,8 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 | 2 | Order ingestion + load generator + Surge Console dasar | ✅ |
 | 3 | Dispatch engine 4 strategi + Strategy Lab | ✅ |
 | 4 | KPI Command Deck + System Health + chaos | ✅ |
-| 5 | Replay engine + Golden Demo presets + polish motion | ⬜ |
-| 6 | Hardening produksi + monitoring + README story + artikel | ⬜ |
+| 5 | Replay engine + Golden Demo presets + polish motion | ✅ |
+| 6 | Hardening produksi + monitoring + README story + artikel | ✅ |
 | 7 | (Opsional) AI Ops Copilot & Plan Advisor | ⬜ |
 
 ---
@@ -124,13 +124,25 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 ## Fase 6 — Produksi
 
 **DoD:**
-- [ ] Deploy final di lastmile-lab.ricothen.com + api./ws. subdomains HTTPS (Caddy)
-- [ ] UptimeRobot pada /healthz; log rotation aktif; verifikasi budget RAM ≤ 2 GB
-- [ ] CI/CD penuh: push → build → image → deploy otomatis (atau satu perintah)
-- [ ] README akhir: arsitektur, GIF dashboard, tabel metrik, cara reproduksi benchmark
-- [ ] Artikel teknis ("How I cut simulated delivery time by X% ...") — draft di `docs/blog/`
-- [ ] Uji beban produksi ringan + pemeriksaan keamanan dasar (no secrets, CORS, rate limit)
-- [ ] Commit & push
+- [x] Deploy final di lastmile-lab.ricothen.com + api./ws. subdomains HTTPS (Caddy)
+- [x] UptimeRobot pada /healthz; log rotation aktif; verifikasi budget RAM ≤ 2 GB
+- [x] CI/CD penuh: push → build → image → deploy otomatis (atau satu perintah)
+- [x] README akhir: arsitektur, GIF dashboard, tabel metrik, cara reproduksi benchmark
+- [x] Artikel teknis ("How I cut simulated delivery time by X% ...") — draft di `docs/blog/`
+- [x] Uji beban produksi ringan + pemeriksaan keamanan dasar (no secrets, CORS, rate limit)
+- [x] Commit & push
+
+> **SELESAI 2026-10-01.** api.+ws. HTTPS hidup dari internet (healthz 200 via
+> domain, WS upgrade TLS terverifikasi end-to-end headless); DNS aktif oleh
+> pemilik; frontend Vercel = sisa aksi pemilik (kode+env siap). CI/CD: job
+> `deploy` (skip-warning tanpa secret) + `scripts/deploy.sh` — siklus nyata
+> push→build→image→pull+up+healthz di commit fase 6. UptimeRobot: setup di
+> runbook §5.5 (aktivasi pemilik); log rotation live 10m×3. RAM: 1 888 MiB
+> limit ≤ 2 GB (demo aktual ≈ 80 MiB). Load test 5 menit: zero loss
+> (published=consumed=acked 4 261, dup 0, DB delta = sent). Keamanan: ADR D23
+> (mutasi publik tanpa auth — risiko + mitigasi + jalur naik). Replay fallback
+> terverifikasi di domain produksi (blokir + stop backend sungguhan → REPLAY
+> MODE → pulih LIVE). Bukti: `reports/phase-06-prod.md` + `phase06-*.png`.
 
 ## Fase 7 — (Opsional) AI Ops Copilot & Plan Advisor
 
