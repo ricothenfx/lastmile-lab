@@ -15,7 +15,7 @@ function StatusPillImpl({ mode }: { mode: OpsMode }) {
   return (
     <span
       role="status"
-      aria-label={`Koneksi: ${cfg.label}`}
+      aria-label={`Connection: ${cfg.label}`}
       className="flex shrink-0 items-center gap-2 rounded-pill border border-line-subtle bg-surface-overlay px-3 py-1"
     >
       {cfg.pulse ? (

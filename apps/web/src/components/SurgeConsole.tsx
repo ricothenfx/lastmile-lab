@@ -148,7 +148,8 @@ function SurgeConsoleImpl({
         step={0.5}
         value={surge}
         disabled={disabled}
-        aria-label="Faktor surge"
+        aria-label="Surge factor"
+        title="Demand multiplier — applies to the live simulation instantly"
         onChange={(e) => setDragValue(Number(e.target.value))}
         onPointerUp={commitSurge}
         onTouchEnd={commitSurge}
@@ -172,6 +173,7 @@ function SurgeConsoleImpl({
           aria-pressed={raining}
           onClick={toggleRain}
           disabled={disabled}
+          title="Rain: riders slow down 40%"
           className={`rounded-input border px-2 py-1.5 font-mono text-[11px] tracking-[0.06em] transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-40 ${
             raining
               ? 'border-status-amber/60 bg-status-amber/10 text-status-amber'
@@ -185,6 +187,7 @@ function SurgeConsoleImpl({
           aria-pressed={flash}
           onClick={toggleFlash}
           disabled={disabled}
+          title="Flash sale: demand ×8"
           className={`rounded-input border px-2 py-1.5 font-mono text-[11px] tracking-[0.06em] transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-40 ${
             flash
               ? 'border-accent-cyan/60 bg-accent-cyan/10 text-accent-cyan'

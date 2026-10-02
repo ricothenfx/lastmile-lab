@@ -120,7 +120,7 @@ func (b Batching) Assign(orders []OrderView, riders []RiderView) []Assignment {
 				RiderID: best,
 				DistM:   bestD,
 				Reason: fmt.Sprintf(
-					"batching: window %.1fs terlampaui (umur %.1fs), kluster pickup z=(%d,%d) dari %d order siap → rider r%d idle terdekat (%.0f m, haversine)",
+					"batching: window %.1fs elapsed (age %.1fs), pickup cluster z=(%d,%d) from %d ready orders → nearest idle rider r%d (%.0f m, haversine)",
 					float64(b.WindowMs)/1000, ageS, k.x, k.y, readyCount, best, bestD),
 			})
 		}

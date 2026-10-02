@@ -31,7 +31,7 @@ export default function AdvisorPanel() {
     const out = await postCopilotAdvise();
     if (out.error || !out.data) {
       setPhase('error');
-      setErrorMsg(out.error ?? 'advise gagal');
+      setErrorMsg(out.error ?? 'advise failed');
       return;
     }
     setAdvise(out.data);
@@ -48,7 +48,7 @@ export default function AdvisorPanel() {
     for (const a of pr.plan.actions) {
       const res = await executeAction(a);
       parts.push(
-        `${a.kind.toUpperCase()} ${res.ok ? 'OK' : res.skipped ? 'SKIP' : 'GAGAL'}${res.error ? ` (${res.error})` : ''}`,
+        `${a.kind.toUpperCase()} ${res.ok ? 'OK' : res.skipped ? 'SKIP' : 'FAIL'}${res.error ? ` (${res.error})` : ''}`,
       );
     }
     setExecMsg(parts.join(' · '));
@@ -59,8 +59,8 @@ export default function AdvisorPanel() {
   return (
     <div data-testid="copilot-advisor">
       <p className="font-mono text-[9px] leading-relaxed text-ink-muted">
-        LLM MENGUSULKAN ≤3 PLAN — SIMULATOR (DUEL, SEED SAMA) YANG MENGHITUNG PREDIKSI.
-        EKSEKUSI TETAP TOMBOL MANUSIA.
+        THE LLM PROPOSES ≤3 PLANS — THE SIMULATOR (DUEL, SAME SEED) COMPUTES THE PREDICTIONS.
+        EXECUTION STAYS A HUMAN BUTTON.
       </p>
       <button
         type="button"
@@ -80,7 +80,7 @@ export default function AdvisorPanel() {
       {advise && (
         <>
           <p className="mt-2 font-mono text-[9px] tabular-nums text-ink-secondary">
-            DRY-RUN {advise.seconds}s · SEED {advise.seed} · BASELINE {advise.base_rate_per_min.toFixed(0)}/MENIT
+            DRY-RUN {advise.seconds}s · SEED {advise.seed} · BASELINE {advise.base_rate_per_min.toFixed(0)}/MIN
           </p>
           <div className="mt-1.5 space-y-2">
             {advise.plans.map((pr, i) => (
@@ -138,7 +138,7 @@ function PlanCard({
         <button
           type="button"
           onClick={onExecute}
-          aria-label={`Execute plan ${pr.plan.name}${armed ? ' — klik lagi untuk konfirmasi' : ''}`}
+          aria-label={`Execute plan ${pr.plan.name}${armed ? ' — click again to confirm' : ''}`}
           className={`shrink-0 rounded-input border px-2 py-0.5 font-mono text-[9px] tracking-[0.06em] transition-colors duration-fast ${
             armed
               ? 'border-status-coral bg-status-coral/20 text-status-coral'
@@ -163,7 +163,7 @@ function PlanCard({
         <table className="mt-1.5 w-full font-mono text-[9px] tabular-nums">
           <thead>
             <tr className="text-ink-muted">
-              <th className="text-left font-normal">METRIK</th>
+              <th className="text-left font-normal">METRIC</th>
               <th className="text-right font-normal">BASE</th>
               <th className="text-right font-normal">PLAN</th>
               <th className="text-right font-normal">Δ</th>

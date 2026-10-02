@@ -81,6 +81,11 @@ label 12 uppercase +0.08em tracking.
 
 - [ ] Semua warna via token; tidak ada hex liar di komponen
 - [ ] Semua angka pakai font mono + tabular-nums
+- [ ] **Semua copy user-facing bahasa Inggris** (label, aria-label, error text,
+      placeholder, narasi demo, reason dispatch — aturan ditambahkan 2026-10-02
+      setelah sweep bahasa sesi 13; komentar kode tetap bebas)
+- [ ] Kontrol punya `title`/tooltip + panduan in-app (`HelpOverlay`, auto-buka
+      sekali untuk pengunjung baru; tombol `? GUIDE` di TopBar)
 - [ ] Kontras AA pada seluruh teks
 - [ ] Motion 60fps (uji laptop menengah), reduced-motion berfungsi
 - [ ] State kosong/loading/error dirancang, bukan kosong mentah

@@ -25,7 +25,7 @@ export default function AskOpsPanel() {
     const out = await postCopilotAsk(q);
     if (out.error || !out.data) {
       setPhase('error');
-      setErrorMsg(out.error ?? 'ask gagal');
+      setErrorMsg(out.error ?? 'ask failed');
       return;
     }
     setAnswer(out.data);
@@ -37,17 +37,17 @@ export default function AskOpsPanel() {
   return (
     <div data-testid="copilot-ask">
       <p className="font-mono text-[9px] leading-relaxed text-ink-muted">
-        JAWABAN WAJIB SITASI DATA INTERNAL (KPI/INCIDENT) — TANPA SITASI DITOLAK.
+        ANSWERS MUST CITE INTERNAL DATA (KPI/INCIDENT) — UNCITED ANSWERS ARE REJECTED.
       </p>
       <div className="mt-1.5 grid grid-cols-[1fr_auto] gap-1.5">
         <input
-          aria-label="Pertanyaan ops"
+          aria-label="Ops question"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !busy) void ask();
           }}
-          placeholder="mis. kenapa p95 naik?"
+          placeholder="e.g. why is p95 spiking?"
           maxLength={500}
           className="rounded-input border border-line-subtle bg-surface-overlay px-2 py-1.5 font-mono text-[11px] text-ink-primary placeholder:text-ink-muted"
         />

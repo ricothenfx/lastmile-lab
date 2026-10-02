@@ -365,7 +365,7 @@ function SystemHealthImpl({ kpiState }: Props) {
 
   const fire = useCallback(async (t: string) => {
     const res = await postChaosKill(t);
-    setKillMsg(res.ok ? `KILL ${t.toUpperCase()} TERKIRIM — self-heal dihitung` : `GAGAL: ${res.error ?? '?'}`);
+    setKillMsg(res.ok ? `KILL ${t.toUpperCase()} SENT — self-heal is being timed` : `FAIL: ${res.error ?? '?'}`);
     return res;
   }, []);
 
@@ -388,6 +388,7 @@ function SystemHealthImpl({ kpiState }: Props) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
+        title="Service grid, chaos drills and the ops copilot"
         className="flex w-full items-center justify-between px-4 py-2.5"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">
@@ -440,7 +441,7 @@ function SystemHealthImpl({ kpiState }: Props) {
                 </p>
                 {events.length === 0 ? (
                   <p className="mt-1 font-mono text-[9px] text-ink-muted">
-                    {chaosUp ? 'TIDAK ADA INCIDENT' : 'CHAOS STANDBY — AKTIFKAN PROFILE CHAOS'}
+                    {chaosUp ? 'NO ACTIVE INCIDENT' : 'CHAOS STANDBY — ENABLE THE CHAOS PROFILE'}
                   </p>
                 ) : (
                   <ul className="mt-1 max-h-[72px] space-y-0.5 overflow-y-auto">
@@ -459,8 +460,8 @@ function SystemHealthImpl({ kpiState }: Props) {
           {tab === 'chaos' && (
             <>
               <p className="mt-2 font-mono text-[9px] leading-relaxed text-ink-muted">
-                KILL = SIGKILL CONTAINER (ALLOWLIST lastmile-* STATELESS) · SELF-HEAL VIA
-                RESTART POLICY UNLESS-STOPPED · INFRA STATE TIDAK BISA DISENTUH
+                KILL = SIGKILL A CONTAINER (ALLOWLIST: STATELESS lastmile-*) · SELF-HEAL VIA
+                RESTART POLICY UNLESS-STOPPED · INFRA STATE IS OUT OF REACH
               </p>
               {chaosTargets ? (
                 <div className="mt-2 grid grid-cols-2 gap-1.5">
@@ -470,7 +471,7 @@ function SystemHealthImpl({ kpiState }: Props) {
                 </div>
               ) : (
                 <p className="mt-2 font-mono text-[9px] text-ink-muted">
-                  {chaosUp ? 'MEMUAT TARGET…' : 'CHAOS STANDBY — AKTIFKAN PROFILE CHAOS'}
+                  {chaosUp ? 'LOADING TARGETS…' : 'CHAOS STANDBY — ENABLE THE CHAOS PROFILE'}
                 </p>
               )}
               {killMsg && (

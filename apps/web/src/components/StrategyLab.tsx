@@ -69,7 +69,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
     (r: LabResult) => {
       setResult(r);
       setPhase(r.status === 'error' ? 'error' : 'done');
-      if (r.status === 'error') setErrorMsg(r.error ?? 'duel gagal');
+      if (r.status === 'error') setErrorMsg(r.error ?? 'duel failed');
       setPlaying(false);
       setPlayIdx(null);
       loadGraph();
@@ -139,7 +139,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
         showResult(await fetchLabResult(id));
       } catch (err) {
         setPhase('error');
-        setErrorMsg(err instanceof Error ? err.message : 'gagal memuat hasil');
+        setErrorMsg(err instanceof Error ? err.message : 'failed to load result');
       }
     },
     [showResult],
@@ -209,6 +209,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
           setOpen(next);
           onOpenChange?.(next);
         }}
+        title="Race two dispatch strategies on the same scenario & seed"
         className="flex w-full items-center justify-between px-4 py-2.5"
       >
         <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">
@@ -252,7 +253,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
           {/* form duel */}
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
             <select
-              aria-label="Strategi A"
+              aria-label="Strategy A"
               value={stratA}
               onChange={(e) => setStratA(e.target.value)}
               disabled={running}
@@ -266,7 +267,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
             </select>
             <span className="font-mono text-[10px] text-ink-muted">VS</span>
             <select
-              aria-label="Strategi B"
+              aria-label="Strategy B"
               value={stratB}
               onChange={(e) => setStratB(e.target.value)}
               disabled={running}
@@ -281,7 +282,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
           </div>
           <div className="mt-1.5 grid grid-cols-[1fr_1fr_auto] gap-1.5">
             <select
-              aria-label="Preset skenario"
+              aria-label="Scenario preset"
               value={preset}
               onChange={(e) => setPreset(e.target.value)}
               disabled={running}
@@ -294,7 +295,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
               ))}
             </select>
             <select
-              aria-label="Durasi duel"
+              aria-label="Duel duration"
               value={seconds}
               onChange={(e) => setSeconds(Number(e.target.value))}
               disabled={running}
@@ -339,14 +340,14 @@ function StrategyLabImpl({ onOpenChange }: Props) {
           {/* riwayat duel tersimpan — bisa dimuat tanpa menjalankan duel baru */}
           {!result && summaries.some((s) => s.status !== 'running') && (
             <select
-              aria-label="Muat duel tersimpan"
+              aria-label="Load saved duels"
               value=""
               onChange={(e) => void loadExisting(e.target.value)}
               disabled={running}
               className="mt-1.5 w-full rounded-input border border-line-subtle bg-surface-overlay px-2 py-1.5 font-mono text-[11px] text-ink-primary disabled:opacity-40"
             >
               <option value="">
-                RIWAYAT ({summaries.filter((s) => s.status !== 'running').length})
+                HISTORY ({summaries.filter((s) => s.status !== 'running').length})
               </option>
               {summaries
                 .filter((s) => s.status !== 'running')
@@ -363,8 +364,8 @@ function StrategyLabImpl({ onOpenChange }: Props) {
             <>
               <p className="mt-3 font-mono text-[9px] leading-relaxed text-ink-muted">
                 {result.strategy_a.toUpperCase()} VS {result.strategy_b.toUpperCase()} · PRESET{' '}
-                {result.preset.toUpperCase()} · SEED {result.seed} · ARMADA {result.riders} ·{' '}
-                {result.rate_per_min.toFixed(0)}/MENIT · WALL {((result.duration_wall_ms ?? 0) / 1000).toFixed(1)}S
+                {result.preset.toUpperCase()} · SEED {result.seed} · FLEET {result.riders} ·{' '}
+                {result.rate_per_min.toFixed(0)}/MIN · WALL {((result.duration_wall_ms ?? 0) / 1000).toFixed(1)}S
               </p>
 
               <table className="mt-2 w-full border-collapse font-mono text-[11px] tabular-nums">
@@ -391,12 +392,12 @@ function StrategyLabImpl({ onOpenChange }: Props) {
               </table>
 
               <p className="mt-2 font-mono text-[9px] leading-relaxed text-ink-muted">
-                COST/ORDER = KM ON-TASK PER ORDER TERKIRIM (1 UNIT = 1 KM) · UTIL = % WAKTU ARMADA BEBAN TUGAS
+                COST/ORDER = ON-TASK KM PER DELIVERED ORDER (1 UNIT = 1 KM) · UTIL = % OF FLEET TIME ON TASK
               </p>
 
               <div className="mt-2 border-t border-line-subtle pt-2">
                 <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-ink-secondary">
-                  Delivery time A vs B (bin bersama)
+                  Delivery time A vs B (shared bins)
                 </p>
                 <HistOverlay hist={result.histogram ?? null} />
               </div>
@@ -431,7 +432,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
                   max={Math.max(0, lastIdx)}
                   value={curIdx}
                   disabled={frames.length < 2}
-                  aria-label="Posisi replay duel"
+                  aria-label="Duel replay position"
                   onChange={(e) => {
                     setPlaying(false);
                     setPlayIdx(Number(e.target.value));
@@ -445,7 +446,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
               </div>
               {reduced && (
                 <p className="mt-1 font-mono text-[9px] text-ink-muted">
-                  REDUCED MOTION — FRAME AKHIR STATIS
+                  REDUCED MOTION — STATIC LAST FRAME
                 </p>
               )}
 
@@ -458,7 +459,7 @@ function StrategyLabImpl({ onOpenChange }: Props) {
                   ⭳ EXPORT JSON
                 </button>
                 <select
-                  aria-label="Riwayat duel"
+                  aria-label="Duel history"
                   value={result.id}
                   onChange={(e) => void loadExisting(e.target.value)}
                   className="min-w-0 flex-1 rounded-input border border-line-subtle bg-surface-overlay px-2 py-1 font-mono text-[10px] text-ink-primary"

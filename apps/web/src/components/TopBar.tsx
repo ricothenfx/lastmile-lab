@@ -28,10 +28,12 @@ function TopBarImpl({
   mode,
   stats,
   incidentsOpen,
+  onGuide,
 }: {
   mode: OpsMode;
   stats: Snapshot['st'] | null;
   incidentsOpen: number | null;
+  onGuide?: () => void;
 }) {
   return (
     <header className="z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line-subtle bg-surface-raised px-4">
@@ -60,6 +62,17 @@ function TopBarImpl({
           <Ticker label="Active" value={stats ? stats.ac : '—'} />
           <Ticker label="Delivered" value={stats ? stats.dl : '—'} />
         </div>
+        {onGuide && (
+          <button
+            type="button"
+            onClick={onGuide}
+            title="How to use this dashboard"
+            aria-label="Open usage guide"
+            className="rounded-pill border border-line-subtle bg-surface-overlay px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-ink-secondary transition-colors duration-fast hover:border-accent-cyan/60 hover:text-accent-cyan"
+          >
+            ? GUIDE
+          </button>
+        )}
         <StatusPill mode={mode} />
       </div>
     </header>

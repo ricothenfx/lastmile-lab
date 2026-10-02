@@ -49,8 +49,8 @@ function SLOGauge({ slo }: { slo: SloItem[] }) {
   const r = 24;
   const arc = Math.PI * r;
   return (
-    <div className="flex items-center gap-2" title="Status SLO gabungan">
-      <svg width="64" height="38" viewBox="0 0 64 38" role="img" aria-label={`SLO ${label} terpenuhi`}>
+    <div className="flex items-center gap-2" title="Combined SLO status">
+      <svg width="64" height="38" viewBox="0 0 64 38" role="img" aria-label={`SLO ${label} met`}>
         <path
           d={`M 6 34 A ${r} ${r} 0 0 1 58 34`}
           fill="none"
@@ -232,6 +232,7 @@ function KpiDeckImpl({ kpiState, onOpenChange }: Props) {
             setOpen(next);
             onOpenChange?.(next);
           }}
+          title="Live KPIs from the running pipeline — click to collapse/expand"
           className="flex min-w-0 items-center gap-3"
         >
           <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">
@@ -275,7 +276,7 @@ function KpiDeckImpl({ kpiState, onOpenChange }: Props) {
             <Card
               label="Utilization"
               value={fmtOrDash(sim?.utilization_pct, (v) => v.toFixed(0) + '%', hasSim)}
-              sub="armada on-task"
+              sub="fleet on-task"
             />
             <Card
               label="Cost / Order"
@@ -297,7 +298,7 @@ function KpiDeckImpl({ kpiState, onOpenChange }: Props) {
             <Card
               label="Queue"
               value={fmtOrDash(sim?.orders_waiting, (v) => v.toFixed(0), hasSim)}
-              sub={kpi?.queue.ingestion_inflight !== null && kpi?.queue.ingestion_inflight !== undefined ? `ingest inflight ${kpi.queue.ingestion_inflight}` : 'order menunggu'}
+              sub={kpi?.queue.ingestion_inflight !== null && kpi?.queue.ingestion_inflight !== undefined ? `ingest inflight ${kpi.queue.ingestion_inflight}` : 'orders waiting'}
             />
             <Card
               label="Kafka Lag"
@@ -312,7 +313,7 @@ function KpiDeckImpl({ kpiState, onOpenChange }: Props) {
           </div>
 
           <p className="mt-1.5 font-mono text-[8px] leading-relaxed text-ink-muted">
-            SUMBER: ENGINE.METRICS + COUNTERS PIPELINE + INCIDENT CHAOS — BUKAN ANGKA HIAS
+            SOURCE: ENGINE.METRICS + PIPELINE COUNTERS + INCIDENT CHAOS — NO DECORATIVE NUMBERS
             {kpi && !stale && ` · GRID ${countUp(kpi.grid)}/${kpi.grid.length} UP`}
           </p>
         </div>

@@ -526,7 +526,7 @@ func (e *Engine) InjectExternal(o model.ExternalOrder) (string, int) {
 					Seq: e.seq, T: e.nowMs, Strategy: "fifo(pipeline)",
 					OrderID: ord.id, RiderID: r.id,
 					DistM:  math.Round(o.DistM),
-					Reason: fmt.Sprintf("pipeline: dispatch-consumer → rider r%d (%.0f m); engine validasi ulang saat injeksi", r.id, o.DistM),
+					Reason: fmt.Sprintf("pipeline: dispatch-consumer → rider r%d (%.0f m); engine revalidates on injection", r.id, o.DistM),
 				})
 				return "assigned", r.id
 			}

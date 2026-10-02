@@ -64,14 +64,14 @@ function DemoLauncherImpl() {
         setPresets(p);
         setErr('');
       })
-      .catch(() => setErr('Daftar preset tidak terjangkau'));
+      .catch(() => setErr('Preset list unreachable'));
   }, []);
 
   const play = useCallback(async (id: string) => {
     setBusy(true);
     setErr('');
     const res = await postDemoPlay(id);
-    if (!res.ok) setErr(res.error ?? 'demo gagal dimulai');
+    if (!res.ok) setErr(res.error ?? 'failed to start demo');
     setBusy(false);
     setOpen(false);
   }, []);
@@ -91,6 +91,7 @@ function DemoLauncherImpl() {
             setOpen(next);
             if (next && presets.length === 0) loadPresets();
           }}
+          title="Guided 90 s story: surge → rain → chaos kill → self-heal"
           className={`rounded-pill border px-3 py-1.5 font-mono text-[11px] tracking-[0.08em] backdrop-blur transition-colors duration-fast ${
             active
               ? 'border-status-amber/60 bg-status-amber/10 text-status-amber'
@@ -109,12 +110,12 @@ function DemoLauncherImpl() {
           >
             <div className="mb-2 flex items-center justify-between">
               <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">
-                Golden Demo — narasi 90 detik
+                Golden Demo — 90s guided story
               </span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="Tutup daftar demo"
+                aria-label="Close demo list"
                 className="font-mono text-[11px] text-ink-muted transition-colors duration-fast hover:text-ink-primary"
               >
                 ✕
@@ -141,7 +142,7 @@ function DemoLauncherImpl() {
                   <span className="min-w-0">
                     <span className="block truncate font-mono text-[11px] text-ink-primary">{p.name}</span>
                     <span className="block font-mono text-[9px] leading-relaxed text-ink-muted">
-                      {p.desc} · {Math.round(p.duration_s)}s · {p.steps.length} langkah
+                      {p.desc} · {Math.round(p.duration_s)}s · {p.steps.length} steps
                     </span>
                   </span>
                   <button
@@ -156,7 +157,7 @@ function DemoLauncherImpl() {
               ))}
               {presets.length === 0 && !offline && (
                 <li className="font-mono text-[10px] text-ink-secondary" role="status">
-                  MEMUAT PRESET…
+                  LOADING PRESETS…
                 </li>
               )}
             </ul>
@@ -175,10 +176,10 @@ function DemoLauncherImpl() {
             <span className="h-2 w-2 shrink-0 rounded-full bg-status-amber" aria-hidden />
             <span className="min-w-0 flex-1">
               <span className="block truncate font-mono text-[11px] text-ink-primary">
-                {state.name} — {state.label || 'menyiapkan…'}
+                {state.name} — {state.label || 'preparing…'}
               </span>
               <span className="block font-mono text-[9px] tabular-nums text-ink-secondary">
-                LANGKAH {state.step}/{state.total_steps} · {fmtClock(state.elapsed_s)} /{' '}
+                STEP {state.step}/{state.total_steps} · {fmtClock(state.elapsed_s)} /{' '}
                 {fmtClock(state.duration_s)}
               </span>
             </span>

@@ -113,9 +113,9 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
     try {
       const list = await fetchReplaySessions();
       const info = list[0];
-      if (!info || info.frames === 0) throw new Error('buffer replay kosong — menunggu perekaman');
+      if (!info || info.frames === 0) throw new Error('replay buffer empty — waiting for recordings');
       const dump = await fetchReplayDump(info.id);
-      if (!dump.frames?.length) throw new Error('dump frame kosong');
+      if (!dump.frames?.length) throw new Error('empty frame dump');
       adoptSource({ kind: 'session', frames: dump.frames, t0: dump.t0, info, decisions: dump.decisions });
       fetchIncidents()
         .then(setIncidents)
@@ -130,7 +130,7 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
         setStatus('ready');
       } catch (err) {
         setStatus('error');
-        setErrorMsg(err instanceof Error ? err.message : 'sumber replay tak terjangkau');
+        setErrorMsg(err instanceof Error ? err.message : 'replay source unreachable');
       }
     }
   }, [adoptSource]);
@@ -272,6 +272,8 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
+        title="Scrub the 15-min recording buffer, ×1–×16, click dots to inspect"
+        aria-label="Open replay and inspect panel"
         className={`pointer-events-auto rounded-pill border px-3 py-1.5 font-mono text-[11px] tracking-[0.08em] backdrop-blur transition-colors duration-fast ${
           open
             ? 'border-accent-cyan/60 bg-accent-cyan/10 text-accent-cyan'
@@ -289,12 +291,12 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
         >
           <div className="mb-2 flex items-center justify-between">
             <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">
-              Replay &amp; Inspect {source ? (source.kind === 'fixture' ? '· FIXTURE (OFFLINE)' : '· SESSION live') : ''}
+              Replay &amp; Inspect {source ? (source.kind === 'fixture' ? '· FIXTURE (OFFLINE)' : '· LIVE SESSION') : ''}
             </span>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              aria-label="Tutup panel replay"
+              aria-label="Close replay panel"
               className="font-mono text-[11px] text-ink-muted transition-colors duration-fast hover:text-ink-primary"
             >
               ✕
@@ -303,7 +305,7 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
 
           {status === 'loading' && (
             <p className="py-6 text-center font-mono text-[11px] text-ink-secondary" role="status">
-              MEMUAT BUFFER REPLAY…
+              LOADING REPLAY BUFFER…
             </p>
           )}
           {status === 'error' && (
@@ -314,7 +316,7 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
                 onClick={() => void load()}
                 className="mt-2 rounded-input border border-line-subtle px-2 py-1 font-mono text-[10px] text-ink-secondary transition-colors duration-fast hover:text-ink-primary"
               >
-                ↻ COBA LAGI
+                ↻ RETRY
               </button>
             </div>
           )}
@@ -329,7 +331,7 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
                   max={Math.max(source.t0, span + source.t0)}
                   step={100}
                   value={simT}
-                  aria-label="Posisi timeline replay"
+                  aria-label="Replay timeline position"
                   aria-valuetext={`T+${fmtT(simT - source.t0)}`}
                   onChange={(e) => seek(Number(e.target.value))}
                   className="w-full cursor-pointer"
@@ -411,16 +413,16 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
 
               <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-ink-muted">
                 {source.kind === 'fixture'
-                  ? 'BACKEND OFFLINE — FIXTURE REPLAY FASE 1 (LOOP 45 S @ 5 HZ). SCRUB TETAP JALAN.'
-                  : `SESI ${source.info.meta.id.toUpperCase()} · ${source.info.frames} FRAME · ${source.info.meta.hz} HZ · BUFFER ${Math.round(source.info.seconds_retained / 60)} MENIT ${(source.info.seconds_retained % 60)} S · AKURASI SCRUB ≤ ${(1000 / source.info.meta.hz / 1000).toFixed(1)} S · SEED ${source.info.meta.seed} · ${source.info.meta.strategy.toUpperCase()}`}
+                  ? 'BACKEND OFFLINE — PHASE 1 FIXTURE REPLAY (45 S LOOP @ 5 HZ). SCRUB STILL WORKS.'
+                  : `SESSION ${source.info.meta.id.toUpperCase()} · ${source.info.frames} FRAMES · ${source.info.meta.hz} HZ · BUFFER ${Math.round(source.info.seconds_retained / 60)} MIN ${(source.info.seconds_retained % 60)} S · SCRUB ACCURACY ≤ ${(1000 / source.info.meta.hz / 1000).toFixed(1)} S · SEED ${source.info.meta.seed} · ${source.info.meta.strategy.toUpperCase()}`}
                 {' · '}
-                KLIK RIDER/ORDER DI PETA UNTUK INSPECT
+                CLICK A RIDER/ORDER ON THE MAP TO INSPECT
               </p>
 
               {/* kartu inspect */}
               {!selected && (
                 <p className="mt-2 font-mono text-[10px] text-ink-muted">
-                  Belum ada entitas dipilih — klik titik rider atau order pada peta.
+                  Nothing selected yet — click a rider or order dot on the map.
                 </p>
               )}
               {selectedRider && (
@@ -439,7 +441,7 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
                     if (!ord) {
                       return (
                         <p className="mt-1 font-mono text-[10px] text-ink-secondary">
-                          Tidak membawa order — idle wander.
+                          Not carrying an order — idle wandering.
                         </p>
                       );
                     }
@@ -452,7 +454,7 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
                           </span>
                         </span>
                         <span>
-                          UMUR <span className="text-ink-primary">{fmtT(simT - (firstSeen.current.get(ord.i) ?? simT))}</span>
+                          AGE <span className="text-ink-primary">{fmtT(simT - (firstSeen.current.get(ord.i) ?? simT))}</span>
                         </span>
                         <span>
                           PICKUP {ord.pa.toFixed(4)}, {ord.po.toFixed(4)}
@@ -465,7 +467,7 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
                   })()}
                   <div className="mt-2 border-t border-line-subtle pt-2">
                     <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-ink-secondary">
-                      Alasan keputusan dispatch
+                      Dispatch decision reason
                     </p>
                     {riderDecision ? (
                       <>
@@ -480,8 +482,8 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
                     ) : (
                       <p className="mt-1 font-mono text-[10px] text-ink-muted">
                         {source.kind === 'fixture'
-                          ? '— (fixture tidak membawa ring keputusan)'
-                          : 'Tidak ada keputusan tercatat untuk rider ini pada titik waktu ini.'}
+                          ? '— (fixture carries no decision ring)'
+                          : 'No decision recorded for this rider at this point in time.'}
                       </p>
                     )}
                   </div>
@@ -499,11 +501,11 @@ function ReplayPanelImpl({ streamRef, overrideRef }: Props) {
                   </div>
                   <div className="mt-1 grid gap-x-4 gap-y-0.5 font-mono text-[10px] tabular-nums text-ink-secondary sm:grid-cols-2">
                     <span>
-                      UMUR{' '}
+                      AGE{' '}
                       <span className="text-ink-primary">
                         {orderAgeMs !== null ? fmtT(orderAgeMs) : '—'}
                       </span>{' '}
-                      (sejak muncul di feed)
+                      (since first seen in feed)
                     </span>
                     <span>
                       RIDER{' '}

@@ -88,7 +88,7 @@ export function useOpsStream(): OpsStream {
       if (!res.ok) throw new Error(`fixture ${res.status}`);
       const data = await res.json();
       const fs: Snapshot[] = Array.isArray(data.frames) ? data.frames : [];
-      if (fs.length === 0) throw new Error('fixture kosong');
+      if (fs.length === 0) throw new Error('empty fixture');
       replayRef.current = { frames: fs, t0: fs[0].t, start: performance.now() };
       statsRef.current = fs[fs.length - 1].st ?? null;
       setStats(statsRef.current);

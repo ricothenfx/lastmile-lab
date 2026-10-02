@@ -58,6 +58,36 @@
 
 ## Log
 
+### 2026-10-02 — Fix peta kosong + UI 100% Inggris + panduan in-app (sesi 13)
+
+Laporan pemilik (user pertama): peta polos tanpa aktivitas, masih ada teks
+Indonesia, dan pengguna baru bingung cara memakai dashboard. Tiga perbaikan:
+
+- **Bug peta kosong — AKAR MASALAH DITEMUKAN**: dot rider/order digambar di
+  canvas overlay 2D, tapi maplibre meng-append canvas WebGL-nya SETELAH
+  overlay (sama-sama `position:absolute`, tanpa z-index) → peta menutupi
+  seluruh entitas. Bukti diagnosis: buffer canvas overlay berisi puluhan ribu
+  piksel entitas (getImageData probe) sementara screenshot produksi menampilkan
+  nol dot; WS sehat (49 frame/6 s, 100 riders), snapshot lengkap (r/o/l/st),
+  proyeksi koordinat benar, console 0 error. Fix: `z-index:1` eksplisit pada
+  overlay (`LiveMap.tsx`) + komentar penjelasan. Bug ini ada sejak fase 1 —
+  screenshot lama (fase 5/6/7) ikut membuktikan dot tak pernah terlihat.
+- **UI 100% bahasa Inggris**: sweep seluruh copy user-facing — komponen web
+  (label, aria-label, placeholder, pesan error/empty state), teks Golden Demo
+  dari backend (`api-gateway/demo.go`: nama/desc/step label), dan reason
+  keputusan dispatch dari backend (`fifo/zone/batching/pipeline` — tampil di
+  kartu inspect replay). Aturan bahasa ditulis di `docs/DESIGN.md` §7.
+- **Panduan penggunaan in-app**: `HelpOverlay` baru — auto-buka sekali untuk
+  pengunjung pertama (localStorage), tombol **? GUIDE** di TopBar, tutup via
+  ESC/klik luar; 8 seksi menjelaskan peta+warna dot, KPI deck, surge console,
+  strategy lab, system health, demo & replay. Ditambah tooltip `title` pada
+  kontrol kunci (slider surge, RAIN/FLASH, DEMO, REPLAY, toggle panel, peta).
+- **Verifikasi**: `tsc --noEmit` ✅, `next build` ✅ (docker node:22-alpine —
+  node_modules memuat SWC musl; catatan: build web di VPS harus via alpine,
+  bukan bookworm), `go test` dispatch+model+api-gateway ✅. Deploy: frontend
+  otomatis via Vercel; backend images otomatis via CI (paths filter kena:
+  demo.go + dispatch + engine berubah).
+
 ### 2026-10-02 — UptimeRobot sebagian aktif; 60fps ditunda pemilik (sesi 12)
 
 - Akun UptimeRobot aktif (Main API key via `/tmp/kilo/ur_key`, perm 600, di

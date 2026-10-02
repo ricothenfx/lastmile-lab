@@ -128,6 +128,11 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
     canvas.style.width = '100%';
     canvas.style.height = '100%';
     canvas.style.pointerEvents = 'none';
+    // Wajib: maplibre meng-append canvas WebGL-nya SETELAH overlay ini
+    // (sama-sama absolute) — tanpa z-index eksplisit peta menutupi semua
+    // dot/garis yang digambar (bug produksi 2026-10-02: buffer berisi
+    // puluhan ribu piksel entitas tapi tak terlihat).
+    canvas.style.zIndex = '1';
     container.appendChild(canvas);
     const ctx = canvas.getContext('2d')!;
 
@@ -448,6 +453,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
       // Tailwind — tanpa ini tinggi kontainer 0 dan peta tidak tergambar.
       style={{ position: 'absolute' }}
       aria-label="Live Ops Map — Berlin"
+      title="Live Berlin ops: dots = riders (idle lime / to-pickup amber / pickup cyan / delivering violet), pulsing cyan = waiting orders, dashed line = assignment"
       role="img"
     />
   );

@@ -28,7 +28,7 @@ function LegendImpl() {
   const t = tokens.color;
   return (
     <aside
-      aria-label="Legenda peta"
+      aria-label="Map legend"
       className="absolute left-4 top-[68px] z-10 rounded-panel border border-line-subtle bg-surface-raised/85 px-4 py-3 backdrop-blur"
     >
       <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">

@@ -97,7 +97,7 @@ func (z Zone) Assign(orders []OrderView, riders []RiderView) []Assignment {
 			RiderID: best,
 			DistM:   bestD,
 			Reason: fmt.Sprintf(
-				"zone: pickup di z=(%d,%d), %s → rider r%d idle terdekat (%.0f m, haversine)",
+				"zone: pickup in z=(%d,%d), %s → nearest idle rider r%d (%.0f m, haversine)",
 				center.x, center.y, fallback, best, bestD),
 		})
 	}

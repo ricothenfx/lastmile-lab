@@ -85,7 +85,7 @@ func (FIFO) Assign(orders []OrderView, riders []RiderView) []Assignment {
 			OrderID: o.ID,
 			RiderID: best,
 			DistM:   bestD,
-			Reason: fmt.Sprintf("fifo: antrean tertua (umur %.0fs) → rider r%d idle terdekat (%.0f m, haversine)",
+			Reason: fmt.Sprintf("fifo: oldest in queue (age %.0fs) → nearest idle rider r%d (%.0f m, haversine)",
 				ageS, best, bestD),
 		})
 	}

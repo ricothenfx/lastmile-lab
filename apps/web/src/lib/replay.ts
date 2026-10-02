@@ -166,7 +166,7 @@ export async function fetchFixtureFrames(): Promise<{ frames: Snapshot[]; t0: nu
   if (!res.ok) throw new Error(`fixture ${res.status}`);
   const data = (await res.json()) as { frames?: Snapshot[] };
   const frames = Array.isArray(data.frames) ? data.frames : [];
-  if (frames.length === 0) throw new Error('fixture kosong');
+  if (frames.length === 0) throw new Error('empty fixture');
   return { frames, t0: frames[0].t };
 }
 
