@@ -185,7 +185,10 @@ docker compose -p lastmile -f deploy/compose.yaml -f deploy/compose.pipeline.yam
   2. `docker compose -p lastmile --profile sim --profile chaos --profile copilot pull && \
      docker compose -p lastmile --profile sim --profile chaos --profile copilot up -d`
   3. Verifikasi: `curl -s localhost:3010/api/copilot/capabilities` → `{"enabled":true}`;
-     panel ADVISOR (Strategy Lab) & COPILOT (System Health) muncul di UI.
+     panel ADVISOR (Strategy Lab) & COPILOT (System Health) muncul di UI
+     (tab tampil setelah panel dibuka — capabilities dicek saat panel mount).
+     **Status: AKTIF sejak 2026-10-02** — evaluasi 15 kasus selesai
+     (laporan fase 7 §6: metrik 5/5 benar, diag konteks-kosong ditolak validator).
 - Menonaktifkan: hapus key dari `.env` lalu `up -d` tanpa profile `copilot`
   (atau `docker compose -p lastmile --profile copilot rm -sf copilot`).
 - Rate limit bawaan 6/menit per endpoint (env `RATE_PER_MIN` pada service `copilot`);

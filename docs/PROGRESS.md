@@ -15,16 +15,16 @@
   dry-run via jalur duel existing (seed sama, 120 s virtual ≈ 0,2 s wall) →
   eksekusi manual konfirmasi 2 langkah via endpoint kontrol existing (LLM
   tidak pernah eksekusi). Ask Ops = jawaban wajib sitasi; tanpa sitasi 422.
-  Evaluasi live 15 kasus: **menunggu API key pemilik** (kode + skoring
-  teruji, prosedur di `reports/phase-07-copilot.md` §6). Bonus: bug proxy
+  **Copilot LIVE sejak 2026-10-02** (key pemilik di `deploy/.env`) — panel
+  ADVISOR/COPILOT tampil di UI produksi; evaluasi live 15 kasus selesai:
+  metrik 5/5 benar, diag surge/incident lemah (4 ditolak validator —
+  konteks tanpa surge/incident aktif; rincian di laporan §6). Bonus: bug proxy
   replay 4 s-client terpotong di host berbeban ditemukan + diperbaiki
   (client khusus 30 s — regresi SESI LIVE terverifikasi).
-- **Langkah berikutnya:** (opsional) polish portofolio. Sisa aksi pemilik
-  (bukan blokir repo): aktivasi monitor UptimeRobot (runbook §5.5); verifikasi
-  60fps di laptop fisik (prosedur di bawah); bila ingin menyalakan copilot:
-  isi `LASTMILE_OPENAI_API_KEY` di `deploy/.env` (BUKAN root `.env` — runbook
-  §4.4) + profile `copilot` lalu eksekusi evaluasi §6 laporan. **Auto-deploy
-  backend TUNTAS** — secret terpasang, job `deploy` CI hijau (log sesi 10).
+- **Langkah berikutnya:** (opsional) polish portofolio. Sisa aksi pemilik:
+  aktivasi monitor UptimeRobot (runbook §5.5); verifikasi 60fps di laptop
+  fisik (prosedur di bawah). **Auto-deploy backend TUNTAS** (log sesi 10);
+  **Copilot LIVE + evaluasi selesai** (log sesi 11).
 - **Blokir/tergantung user:** none untuk koding. **GO-LIVE PRODUKSI TUNTAS**
   (backend + frontend LIVE publik).
 
@@ -51,6 +51,32 @@
    playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-02 — AI Ops Copilot LIVE + evaluasi kualitas 15 kasus (sesi 11)
+
+- **Copilot produksi LIVE**: key pemilik diisi `deploy/.env` (posisi dikoreksi
+  sesi 10; file 600 + gitignored) → `pull` + `up -d` profile `copilot` →
+  7/7 kontainer healthy (`lastmile-copilot` healthy, RAM aktual 6,4 MiB /
+  limit 128 MiB) → `GET /api/copilot/capabilities` (api. publik) =
+  `{"enabled":true}`. Budget RAM stack tetap sesi 7 (copilot sudah dihitung).
+- **Panel UI terverifikasi di produksi** (Playwright headless, bukti
+  `reports/phase07-copilot-live-advisor.png` + `-health.png`): buka panel
+  Strategy Lab → tab ADVISOR muncul; System Health → tab COPILOT muncul;
+  console error 0. (Catatan: tab HANYA dirender setelah panel dibuka —
+  `useCopilotEnabled` dijalankan saat mount panel, cek awal tanpa buka panel
+  wajar tidak melihatnya.)
+- **Evaluasi live 15 kasus SELESAI** (prosedur §6 laporan fase 7 — runner
+  `eval.Cases` → `POST /api/copilot/ask` publik → `ScoreAnswer`+`CitationsOK`,
+  kode skoring identik unit test; model `gpt-4o-mini-2024-07-18`; pacing 11 s
+  vs rate limit 6/menit; wall 3,2 menit): **metrik 5/5 benar + sitasi tepat**;
+  diag surge/incident lemah — 6 benar / 1 parsial / 4 salah / **4 ditolak
+  validator (422)** / 0 gagal; sitasi area tepat 10/11 jawaban tampil.
+  Analisis jujur: konteks evaluasi = demo steady TANPA surge/incident aktif →
+  sumber `incidents.summary` kosong → model mengarang sitasi → validator
+  menolak (by design, tidak pernah tampil). Tindak lanjut opsional tercatat
+  di laporan §6 (evaluasi ulang saat konteks aktif / enrich prompt).
+- Runner evaluasi tidak masuk repo (one-shot di /tmp/kilo, pola sesi sebelumnya);
+  skoring tetap satu sumber kebenaran di `internal/eval/groundtruth.go`.
 
 ### 2026-10-02 — Auto-deploy aktif: 3 secret GitHub + fix jalur SSH CI (sesi 10)
 

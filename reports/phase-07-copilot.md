@@ -103,25 +103,51 @@ frame) butuh >4 s di host berbeban → stream terpotong → browser jatuh ke fix
 - Jawaban Ask Ops tanpa sitasi / sitasi tak dikenal → 422 (tidak pernah ditampilkan).
 - Port 4207 container-only, terdaftar di `/home/rico/PORTS.md`.
 
-## 6. Evaluasi kualitas jawaban — ⏳ MENUNGGU API KEY PEMILIK
+## 6. Evaluasi kualitas jawaban — ✅ SELESAI (live, 2026-10-02)
 
-Kode + ground truth sudah lengkap (`internal/eval/groundtruth.go`, **15 kasus: 5 diag
-surge, 5 diag incident, 5 tanya-metrik**, masing-masing dengan keywords ambang
-benar/parsial dan prefix sitasi wajib); unit test penilaian hijau. Yang belum bisa
-dijalankan adalah **eksekusi live evaluasi** (15 pertanyaan × LLM asli + penilaian
-angka di laporan ini) karena environment tidak memiliki `OPENAI_API_KEY`.
+Kode + ground truth (`internal/eval/groundtruth.go`, **15 kasus: 5 diag surge,
+5 diag incident, 5 tanya-metrik**); unit test penilaian hijau. **Eksekusi live
+dijalankan 2026-10-02** setelah key pemilik terpasang (`deploy/.env` → profile
+`copilot`): loop `eval.Cases` → `POST /api/copilot/ask` (via api. publik) →
+`ScoreAnswer` + `CitationsOK` — penilaian dari kode yang sama dengan unit test.
+Model: `gpt-4o-mini-2024-07-18`; pacing 11 s/kasus (rate limit 6/menit) —
+wall 3,2 menit, tanpa 429 tersisa.
 
-**Prosedur eksekusi (pemilik, ±10 menit setelah key ada):**
+| Kasus | Kelas | Nilai | Sitasi area tepat | Catatan |
+|---|---|---|---|---|
+| s1 | surge_diag | salah | ✓ | sitasi `kpi.sim.orders_waiting` |
+| s2 | surge_diag | salah | ✓ | sitasi `kpi.raw` |
+| s3 | surge_diag | parsial | ✓ | |
+| s4 | surge_diag | salah | ✓ | sitasi `kpi.sim.orders_expired` |
+| s5 | surge_diag | **ditolak** | — | validator: sitasi tidak valid → 422, tidak ditampilkan |
+| i1 | incident_diag | **ditolak** | — | idem |
+| i2 | incident_diag | **ditolak** | — | idem |
+| i3 | incident_diag | salah | ✗ | sitasi di luar area wajib (`kpi.raw`) |
+| i4 | incident_diag | **ditolak** | — | validator |
+| i5 | incident_diag | benar | ✓ | `incidents.summary` + `kpi.availability_pct` |
+| m1 | metric | benar | ✓ | `kpi.sim.delivery_p50_ms` |
+| m2 | metric | benar | ✓ | `kpi.sim.strategy` |
+| m3 | metric | benar | ✓ | `kpi.sim.utilization_pct` |
+| m4 | metric | benar | ✓ | `kpi.sim.cost_per_order_km` |
+| m5 | metric | benar | ✓ | `kpi.sim.p99_dispatch_ms` |
 
-1. Isi `LASTMILE_OPENAI_API_KEY` di `.env` VPS → `docker compose -p lastmile
-   --profile sim --profile chaos --profile copilot up -d`.
-2. Jalankan 15 kasus (loop `eval.Cases` → `POST /api/copilot/ask` → `ScoreAnswer` +
-   `CitationsOK` — penilaian otomatis dari kode yang sama dengan unit test).
-3. Laporkan di bagian ini: benar/parsial/salah per kasus + sitasi tepat/tidak + jumlah
-   jawaban ditolak (tanpa sitasi). Hasil jujur termasuk yang salah — sesuai DoD.
+**Ringkasan: benar 6 · parsial 1 · salah 4 · ditolak-validator 4 · gagal 0 —
+sitasi area tepat 10/11 jawaban yang ditampilkan.**
 
-Sampai langkah itu dijalankan, DoD "Evaluasi kualitas terdokumentasi" berstatus
-**parsial-by-design**: infrastruktur + skoring teruji, angka live menunggu key.
+Analisis jujur (sesuai DoD, termasuk yang lemah):
+
+- **Tanya-metrik 5/5 benar + sitasi tepat** — sweet spot: konteks KPI selalu
+  tersedia, angka tidak dikarang.
+- **Diag incident/surge lemah** — konteks saat evaluasi = demo steady: TIDAK ada
+  surge aktif dan TIDAK ada incident chaos terbuka, sehingga area sumber
+  `incidents.summary`/chaos nyaris kosong. Model cenderung mengarang sitasi →
+  **422 oleh validator** (tidak pernah ditampilkan ke operator) = perilaku
+  keamanan by design (ADR D24: tanpa data valid → jawaban ditolak, bukan
+  karangan). i3 satu-satunya lolos validator dengan sitasi di luar area wajib.
+- **Tindak lanjut opsional**: evaluasi ulang kasus i1–i5/s1–s5 saat konteks
+  aktif (Golden Demo / chaos eksperimen) agar sumber data tersedia; dan/atau
+  perkaya prompt agar menjawab eksplisit "tidak ada incident aktif" dengan
+  tetap mensitasi `incidents.summary` (meski kosong) alih-alih mengarang id.
 
 ## 7. Bukti (berkas)
 
