@@ -34,6 +34,7 @@ const SECTIONS: { h: string; rows: [string, string][] }[] = [
       ['Active / Idle', 'riders on-task vs waiting for work.'],
       ['Delivered / Expired', 'completed vs missed TTL — expired eats revenue.'],
       ['Incidents', 'open chaos incidents (node down, self-healing).'],
+      ['INTERVIEW', 'the /interview page: questions an interviewer would ask about this system, answered with ADRs and measured numbers.'],
       ['LIVE pill', 'LIVE = websocket stream; REPLAY = recorded fallback when the stream is down; CONNECTING = handshake.'],
     ],
   },

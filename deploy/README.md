@@ -268,6 +268,14 @@ sisi internet (Caddy → api-gateway) — titik fail paling awal yang dilihat pe
   dimatikan via API, Attack Challenge Mode OFF via dashboard; nyala = semua
   pengunjung kena "Security Checkpoint", termasuk korporat/VPN). Protected
   sourcemaps boleh ON.
+- **Vercel Security Checkpoint per-IP (catatan 2026-10-02)**: meski Protection
+  OFF, Vercel bisa tetap menantang IP datacenter tertentu (reputasi IP/region,
+  kode 21 "Failed to verify your browser"). Pada 2026-10-02 seluruh request
+  dari IP VPS ini (curl maupun browser headless) kena 403 checkpoint — browser
+  manusia & UptimeRobot tetap lolos. Konsekuensi verifikasi: jalankan
+  `scripts/verify-all.mjs --target=prod` dari IP lain (laptop pribadi, docker
+  yang sama), atau gunakan mode `--target=local` (build produksi identik +
+  backend produksi nyata) — lihat `reports/phase-09-qa.md` §4.
 - Rollback: Vercel dashboard → Deployments → pilih versi → Promote to Production.
 
 ## 7. Kesehatan & Ketahanan 24 Jam

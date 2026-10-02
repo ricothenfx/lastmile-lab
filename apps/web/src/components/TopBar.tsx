@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { memo } from 'react';
 import type { Snapshot } from '@/lib/protocol';
 import type { OpsMode } from '@/lib/useOpsStream';
@@ -62,6 +63,13 @@ function TopBarImpl({
           <Ticker label="Active" value={stats ? stats.ac : '—'} />
           <Ticker label="Delivered" value={stats ? stats.dl : '—'} />
         </div>
+        <Link
+          href="/interview"
+          title="Questions an interviewer would ask — with answers from the repo"
+          className="hidden rounded-pill border border-line-subtle bg-surface-overlay px-3 py-1 font-mono text-[11px] tracking-[0.08em] text-ink-secondary transition-colors duration-fast hover:border-accent-cyan/60 hover:text-accent-cyan sm:inline-block"
+        >
+          INTERVIEW
+        </Link>
         {onGuide && (
           <button
             type="button"

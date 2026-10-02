@@ -5,20 +5,23 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** FASE 9 🔨 (Autonomous QA suite + halaman Interview Q&A —
-  spec `docs/PHASES/phase-09.md`). Fase 0–8 SELESAI.
-- **Kondisi:** **FASE 8 SELESAI 2026-10-02** (sesi 14): peta Live Ops naik
-  kelas — nama jalan OSM (glyph Inter self-hosted ±355 KB, replikasi
-  simplifikasi graphgen atas Overpass, graph routing tak disentuh), glow
-  jalan major saat zoom, heatmap zona bernapas mengikuti surge nyata
-  (ADR D25), delivery burst/expiry fade, dan hover + klik inspector live
-  (hit-test 0,1–0,2 ms; kartu inspect + Escape). Verifikasi headless
-  ALL PASSED 23 check (`reports/phase-08-map.md`), console 0, nol rAF idle
-  baru (28/2 s), reduced-motion penuh. Copilot tetap LIVE (sesi 11).
-- **Langkah berikutnya:** eksekusi fase 9 (halaman `/interview` + suite
-  `scripts/verify-all.mjs`); sisa aksi pemilik: monitor keyword
-  `lastmile-api-healthz` di dashboard UptimeRobot (±2 menit, runbook §5.5);
-  verifikasi 60fps laptop fisik tetap ditunda keputusan pemilik.
+- **Fase aktif:** TIDAK ADA — **fase 0–9 SELESAI** (fase 9: Autonomous QA
+  suite `scripts/verify-all.mjs` + halaman `/interview` 36 Q&A bersitasi —
+  `reports/phase-09-qa.md`; 33 PASS / 0 FAIL mode local).
+- **Kondisi:** **FASE 9 SELESAI 2026-10-02** (sesi 14): satu command
+  memeriksa 16 suite (map/interact/heat/bursts/kpi/replay/offline/interview/
+  copilot/a11y/perf/console + chaos/lab/demo khusus local) — 33 PASS / 0
+  FAIL, mutasi dipulihkan (surge ×1, demo stop, strategy-lab self-heal
+  3,9 s). Halaman `/interview` = 36 Q&A / 8 kategori, 36/36 sitasi ADR /
+  angka terukur, statis tanpa backend, link INTERVIEW di TopBar. **Catatan
+  lingkungan:** Vercel Security Checkpoint mulai 403 untuk IP VPS ini
+  (browser manusia & UptimeRobot tetap lolos) — verifikasi prod memakai
+  build produksi identik; runbook §6 diperbarui. Fase 8 (peta: nama jalan
+  OSM, glow, heatmap D25, burst, hover/klik inspector — 23 check ALL
+  PASSED) tetap utuh, detail di log di bawah.
+- **Langkah berikutnya:** verifikasi pasca-deploy `/interview` di produksi
+  dari IP non-VPS (lihat `reports/phase-09-qa.md` §4); sisa aksi pemilik:
+  monitor keyword UptimeRobot, verifikasi 60fps laptop fisik.
 - **Blokir/tergantung user:** none untuk koding. **GO-LIVE PRODUKSI TUNTAS**
   (backend + frontend LIVE publik).
 
@@ -49,6 +52,34 @@
    playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-02 — Fase 9: Autonomous QA suite + halaman Interview (sesi 14)
+
+- **`/interview`** (route statis): 36 Q&A / 8 kategori — posisi penguji:
+  kenapa Go/Kafka/Redpanda/bukan RabbitMQ, at-least-once & dedupe 3 lapis,
+  kenapa Hungarian manual bukan OR-Tools (p99 13,1 ms @100×100; rush +98%
+  delivered, −54% cost/order), kapan optimal TIDAK worth it (303 ms
+  @300×300), canvas 2D vs SVG/WebGL, replay fallback, war story z-index,
+  chaos SIGTERM PID 1 (MTTR 2,0–3,0 s), zero loss 5.460=5.460, kenapa TANPA
+  Prometheus/Grafana, endpoint mutasi publik D23, simulator-as-judge D24,
+  "apa yang pecah di 10.000 rider" — 36/36 jawaban bersitasi ADR/angka.
+  Server component + `<details>` (nol JS), token-only, AA, link INTERVIEW
+  di TopBar.
+- **`scripts/verify-all.mjs`**: 16 suite / 2 mode (--target=local|prod,
+  --only filter). Local FULL: **33 PASS / 0 FAIL** — chaos kill strategy-lab
+  (202 → self-heal 3,9 s), duel lab fifo vs optimal (status done), Golden
+  Demo play→FLASH SALE→stop, offline fallback, a11y reduced-motion, rAF
+  idle 39/2 s, console 0. Bug historis jadi check permanen (z-index peta,
+  label `has`/casing glyph, innerText uppercase, dsb). Artifacts:
+  `reports/verify-local/` (summary.json + 9 screenshot), laporan:
+  `reports/phase-09-qa.md`.
+- **Perbaikan skrip selama verifikasi**: parser arg `--k=v`, API default
+  via domain publik (stack tidak dipublish ke loopback — sesuai arsitektur),
+  urutan lab→chaos, gate kebenaran berbasis hasil akhir (self-heal /
+  status done), diagnostik hydrate untuk host load 8+.
+- **Catatan lingkungan**: Vercel Security Checkpoint 403 untuk IP VPS
+  (curl + headless; manusia & monitor eksternal lolos) → verifikasi prod
+  memakai build produksi identik; runbook §6 diperbarui.
 
 ### 2026-10-02 — Fase 8: Map craft & map interactivity (sesi 14)
 

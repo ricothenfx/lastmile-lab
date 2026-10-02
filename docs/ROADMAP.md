@@ -17,7 +17,7 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 | 6 | Hardening produksi + monitoring + README story + artikel | ✅ |
 | 7 | (Opsional) AI Ops Copilot & Plan Advisor | ✅ |
 | 8 | Map craft & map interactivity (nama jalan, heatmap, hover/click) | ✅ |
-| 9 | Autonomous QA suite + halaman Interview Q&A | 🔨 |
+| 9 | Autonomous QA suite + halaman Interview Q&A | ✅ |
 
 ---
 
@@ -187,7 +187,13 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 
 ## Fase 9 — Autonomous QA suite + halaman Interview Q&A
 
-**DoD:** (spec: `PHASES/phase-09.md`)
-- [ ] Halaman `/interview` — ≥25 Q&A interviewer bersitasi ADR/angka terukur
-- [ ] Suite e2e terpadu 2 mode (lokal/prod) — satu command
-- [ ] Bug historis jadi tes permanen; console 0; commit & push
+**DoD:** (spec: `PHASES/phase-09.md`; bukti: `reports/phase-09-qa.md` +
+`reports/verify-local/`)
+- [x] Halaman `/interview` — 36 Q&A / 8 kategori, 36/36 bersitasi ADR/angka
+- [x] Suite e2e terpadu `scripts/verify-all.mjs` (local penuh + prod subset)
+- [x] Bug historis jadi tes permanen; console 0; satu command — commit & push
+
+> **SELESAI 2026-10-02.** verify-all local: 33 PASS / 0 FAIL (chaos kill →
+> self-heal 3,9 s; duel lab done; demo play/stop; offline fallback; a11y;
+> console 0). Catatan: Vercel checkpoint 403 dari IP VPS — verifikasi prod
+> memakai build produksi identik; runbook §6 diperbarui.
