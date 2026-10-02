@@ -223,18 +223,19 @@ curl https://api.lastmile-lab.ricothen.com/healthz  → 200 (api-gateway)
 curl https://ws.lastmile-lab.ricothen.com/healthz   → 200 (ws-gateway)
 ```
 
-## 5.5 Monitoring eksternal — UptimeRobot (setup pemilik, ±5 menit)
+## 5.5 Monitoring eksternal — UptimeRobot — 🟡 SEBAGIAN AKTIF (2026-10-02)
 
-1. Daftar gratis di uptimerobot.com (paket Free: 50 monitor, interval 5 menit).
-2. Add New Monitor → **HTTP(s)**, interval 5 menit:
-   - `api-healthz` → `https://api.lastmile-lab.ricothen.com/healthz`
-     (harap 200 + JSON `{"ok":true,...}` — liveness api-gateway; bukan cukup
-     TCP, karena /healthz juga mem-probe rider-sim).
-   - Opsional: `ws-healthz` → `https://ws.lastmile-lab.ricothen.com/healthz`;
-     `frontend` → `https://lastmile-lab.ricothen.com` (aktif setelah deploy Vercel).
-3. Alert kontak: email pemilik (default). Keyword monitor (opsional): `\"ok\":true`
-   agar 200 dengan body aneh pun dianggap down.
-4. Timeout 30 s; jangan aktifkan "port monitoring" — cukup HTTP(s).
+- **Frontend: ✅ MONITOR UP** — `lastmile-lab.ricothen.com` (HTTP, 5 menit,
+  status UP; ID 804154229, dibuat manual pemilik di dashboard).
+- **API healthz: ⏳ monitor keyword dibuat manual** (resep di bawah) — API
+  create monitor = **fitur berbayar** (terbukti 2026-10-02: `newMonitor`
+  minimal → `access_denied` "not allowed with your current plan", sementara
+  `getMonitors`/`editMonitor` → ok; Main API key valid).
+- Resep manual (dashboard, ±2 menit): Add New Monitor → tipe **Keyword** →
+  Friendly Name `lastmile-api-healthz` → URL `https://api.lastmile-lab.
+  ricothen.com/healthz` → Keyword `"ok":true` (dengan kutip) → kondisi alert
+  **"when keyword NOT exists"** (200 tapi body aneh = down) → interval 5 menit.
+  Setelah dibuat: `getMonitors` untuk verifikasi.
 
 Health internal 24 jam: semua service expose `/healthz` (§7); UptimeRobot memantau
 sisi internet (Caddy → api-gateway) — titik fail paling awal yang dilihat pengunjung.

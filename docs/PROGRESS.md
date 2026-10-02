@@ -22,9 +22,11 @@
   replay 4 s-client terpotong di host berbeban ditemukan + diperbaiki
   (client khusus 30 s — regresi SESI LIVE terverifikasi).
 - **Langkah berikutnya:** (opsional) polish portofolio. Sisa aksi pemilik:
-  aktivasi monitor UptimeRobot (runbook §5.5); verifikasi 60fps di laptop
-  fisik (prosedur di bawah). **Auto-deploy backend TUNTAS** (log sesi 10);
-  **Copilot LIVE + evaluasi selesai** (log sesi 11).
+  monitor keyword `lastmile-api-healthz` di dashboard UptimeRobot (±2 menit,
+  resep runbook §5.5 — create via API fitur berbayar); verifikasi 60fps
+  laptop fisik **ditunda atas keputusan pemilik (2026-10-02)**. **Auto-deploy
+  backend TUNTAS** (sesi 10); **Copilot LIVE + evaluasi selesai** (sesi 11);
+  **UptimeRobot sebagian aktif** (frontend UP; log sesi 12).
 - **Blokir/tergantung user:** none untuk koding. **GO-LIVE PRODUKSI TUNTAS**
   (backend + frontend LIVE publik).
 
@@ -40,17 +42,39 @@
    jalur SSH (`DEPLOY_SSH_KEY_FILE`) → job `deploy` CI SUKSES end-to-end
    (run `36956804558`: 4 langkah deploy.sh + "Deploy selesai"; log sesi 10).
    Auto-deploy kini aktif tiap push `apps/services/**`.
-3. **UptimeRobot**: ikuti `deploy/README.md` §5.5 (monitor `https://api.
-   lastmile-lab.ricothen.com/healthz`, interval 5 menit; boleh tambah monitor
-   frontend `https://lastmile-lab.ricothen.com` — kini LIVE).
-4. **Verifikasi 60fps di laptop fisik** (kriteria DoD fase 1 — terpenuhi secara
-   struktural; angka final di hardware target): buka https://lastmile-lab
+3. **UptimeRobot** — 🟡 SEBAGIAN (2026-10-02): akun aktif + monitor frontend
+   `lastmile-lab.ricothen.com` UP (ID 804154229, dibuat manual). Monitor
+   keyword `lastmile-api-healthz` tinggal dibuat manual di dashboard (±2
+   menit, resep runbook §5.5) — **create via API = fitur berbayar** (bukti
+   di runbook; key Main valid untuk read/edit).
+4. **Verifikasi 60fps di laptop fisik** — **DITUNDA atas keputusan pemilik
+   (2026-10-02)**; kriteria DoD fase 1 terpenuhi struktural (rAF tunggal per
+   canvas, render on-demand, tanpa animasi idle — fase 1/3). Prosedur tetap
+   tersedia di bawah bila nanti dijalankan: buka https://lastmile-lab
    .ricothen.com → DevTools Performance → CPU 4× throttle → rekam 15 s →
    harapkan p50 frame ≤ 16,7 ms. Fase 3 menambah dua canvas lab kecil yang
    render ON-DEMAND (tanpa rAF saat idle) — budget idle tidak berubah;
    playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-02 — UptimeRobot sebagian aktif; 60fps ditunda pemilik (sesi 12)
+
+- Akun UptimeRobot aktif (Main API key via `/tmp/kilo/ur_key`, perm 600, di
+  luar git). Ternyata monitor frontend **sudah dibuat pemilik di dashboard**:
+  `lastmile-lab.ricothen.com` (HTTP, 5 menit, timeout 30, status UP,
+  ID 804154229) — `getMonitors` terverifikasi.
+- Temuan: **create monitor via API = fitur berbayar**. Bukti: `newMonitor`
+  minimal (`type=1` + url + nama, tanpa param lain) → `{"stat":"fail",
+  "access_denied":"not allowed to use some settings with your current plan"}`,
+  sementara `getAccountDetails`/`getMonitors`/`editMonitor` (no-op rename) →
+  ok. Kesimpulan resep runbook §5.5 direvisi: monitor keyword healthz dibuat
+  manual di dashboard (±2 menit), lalu diverifikasi via `getMonitors`.
+- Verifikasi target monitor: `GET /healthz` api publik = 200 + body memuat
+  keyword persis `"ok":true` (aman terhadap false-positive `lab_ok` — keyword
+  diawali kutip ganda).
+- **60fps laptop fisik: DITUNDA** atas keputusan pemilik; dicatat sebagai
+  ditunda (bukan blokir) di Langkah Sisa + runbook.
 
 ### 2026-10-02 — AI Ops Copilot LIVE + evaluasi kualitas 15 kasus (sesi 11)
 
