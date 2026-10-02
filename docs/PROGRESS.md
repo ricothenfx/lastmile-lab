@@ -20,33 +20,59 @@
   replay 4 s-client terpotong di host berbeban ditemukan + diperbaiki
   (client khusus 30 s — regresi SESI LIVE terverifikasi).
 - **Langkah berikutnya:** (opsional) polish portofolio. Sisa aksi pemilik
-  (bukan blokir repo): import Vercel + assign domain frontend; 3 secret
-  GitHub (`DEPLOY_SSH_KEY/HOST/USER`) untuk auto-deploy; aktivasi monitor
-  UptimeRobot (runbook §5.5); verifikasi 60fps di laptop fisik (prosedur di
-  bawah); bila ingin menyalakan copilot: isi `LASTMILE_OPENAI_API_KEY` di
-  `.env` + profile `copilot` (runbook §4.4) lalu eksekusi evaluasi §6 laporan.
-- **Blokir/tergantung user:** none untuk koding. Go-live frontend Vercel
-  tetap langkah pemilik akun — backend `api.`/`ws.` sudah LIVE.
+  (bukan blokir repo): 3 secret GitHub (`DEPLOY_SSH_KEY/HOST/USER`) untuk
+  auto-deploy; aktivasi monitor UptimeRobot (runbook §5.5); verifikasi 60fps
+  di laptop fisik (prosedur di bawah); bila ingin menyalakan copilot: isi
+  `LASTMILE_OPENAI_API_KEY` di `.env` + profile `copilot` (runbook §4.4) lalu
+  eksekusi evaluasi §6 laporan.
+- **Blokir/tergantung user:** none untuk koding. **GO-LIVE PRODUKSI TUNTAS**
+  (backend + frontend LIVE publik).
 
 ## Langkah Sisa Go-Live (butuh akses pemilik — bukan blokir fase)
 
-1. **Vercel**: import repo (root dir `apps/web`), env `NEXT_PUBLIC_WS_URL=
-   wss://ws.lastmile-lab.ricothen.com/ws` & `NEXT_PUBLIC_API_URL=https://
-   api.lastmile-lab.ricothen.com`, assign domain `lastmile-lab.ricothen.com`.
-   ✅ DNS `lastmile-lab` → CNAME Vercel sudah aktif (verifikasi sesi fase 6).
+1. ~~**Vercel**: import repo + env + assign domain~~ — **✅ TUNTAS 2026-10-02**
+   (project Vercel `lastmile-lab`, GitHub-integrated auto-deploy, env produksi
+   terpasang, Deployment Protection OFF, domain `lastmile-lab.ricothen.com`
+   200 publik — bukti `reports/phase-06-prod.md` §1.1 + `phase06-vercel-*.png`).
 2. **Secret GitHub** (Settings → Secrets → Actions): `DEPLOY_SSH_KEY`
    (keypair khusus deploy, publik ke authorized_keys VPS), `DEPLOY_SSH_HOST`,
    `DEPLOY_SSH_USER` — begitu di-set, job `deploy` otomatis jalan tiap push
    `apps/services/**`; tanpa itu job skip-warning (CI tetap hijau).
 3. **UptimeRobot**: ikuti `deploy/README.md` §5.5 (monitor `https://api.
-   lastmile-lab.ricothen.com/healthz`, interval 5 menit).
+   lastmile-lab.ricothen.com/healthz`, interval 5 menit; boleh tambah monitor
+   frontend `https://lastmile-lab.ricothen.com` — kini LIVE).
 4. **Verifikasi 60fps di laptop fisik** (kriteria DoD fase 1 — terpenuhi secara
-   struktural; angka final di hardware target): buka app → DevTools Performance →
-   CPU 4× throttle → rekam 15 s → harapkan p50 frame ≤ 16,7 ms. Fase 3 menambah dua
-   canvas lab kecil yang render ON-DEMAND (tanpa rAF saat idle) — budget idle
-   tidak berubah; playback lab hanya rAF saat PLAY ditekan.
+   struktural; angka final di hardware target): buka https://lastmile-lab
+   .ricothen.com → DevTools Performance → CPU 4× throttle → rekam 15 s →
+   harapkan p50 frame ≤ 16,7 ms. Fase 3 menambah dua canvas lab kecil yang
+   render ON-DEMAND (tanpa rAF saat idle) — budget idle tidak berubah;
+   playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-02 — Go-live frontend Vercel (sesi 9)
+
+- **Frontend produksi LIVE**: project Vercel `lastmile-lab` (team
+  `ricothenfxs-projects`) dibuat via CLI v62 dari `apps/web` (device-flow login
+  akun pemilik — satu-satunya langkah manual), **GitHub-integrated**: push
+  `main` → auto-deploy production; jalur manual setara `vercel deploy --prod`.
+- Env produksi scope Production: `NEXT_PUBLIC_WS_URL=wss://ws.…/ws`,
+  `NEXT_PUBLIC_API_URL=https://api.…` (baked saat build); domain
+  `lastmile-lab.ricothen.com` added+verified+auto-assigned → **200 publik
+  0,7 s**. `apps/web/.gitignore` baru (`.vercel`, `.env*`, `!.env.example`)
+  menjaga `.env.local` (VERCEL_OIDC_TOKEN lokal) tak pernah masuk git.
+- **Deployment Protection dimatikan**: Vercel Authentication OFF via API
+  (`ssoProtection: null`); Attack Challenge Mode OFF via dashboard (toggle
+  dashboard-only — saat ON semua pengunjung termasuk browser asli terhalang
+  "Vercel Security Checkpoint" 403 "Failed to verify your browser Code 21").
+  Protected sourcemaps dibiarkan ON.
+- **Verifikasi headless** `reports/phase-06-vercel-verify.mjs`
+  (`phase06-vercel-live.png`, `phase06-vercel-replay.png`): LIVE LINK via
+  domain frontend + KPI via api. publik 200 + blokir api./ws. → banner
+  REPLAY MODE + console error 0. Rantai publik kini utuh:
+  browser → Vercel → wss/https → Caddy → stack lastmile.
+- Bonus: project Vercel sampingan `kilo` (efek samping `vercel curl` dari
+  /tmp/kilo) langsung dihapus; tidak ada resource lain yang tertinggal.
 
 ### 2026-10-01 — Fase 7: AI Ops Copilot & Plan Advisor (sesi 8)
 
