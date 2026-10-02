@@ -16,6 +16,8 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 | 5 | Replay engine + Golden Demo presets + polish motion | ✅ |
 | 6 | Hardening produksi + monitoring + README story + artikel | ✅ |
 | 7 | (Opsional) AI Ops Copilot & Plan Advisor | ✅ |
+| 8 | Map craft & map interactivity (nama jalan, heatmap, hover/click) | ✅ |
+| 9 | Autonomous QA suite + halaman Interview Q&A | 🔨 |
 
 ---
 
@@ -167,3 +169,25 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 > Ask Ops: jawaban tanpa sitasi ditolak (422). ADR D24; laporan +
 > **evaluasi live 15 kasus: menunggu API key pemilik** (kode + skoring teruji —
 > `reports/phase-07-copilot.md` §6). Ram stack demo tetap 1 888 MiB ≤ 2 GB.
+
+## Fase 8 — Map craft & map interactivity
+
+**DoD:** (bukti: `reports/phase-08-map.md` + `reports/phase08-*.png`)
+- [x] Nama jalan OSM di peta (glyph self-hosted, tanpa tile provider — ADR D12)
+- [x] Glow jalan major saat zoom; heatmap zona bernapas mengikuti surge (D25)
+- [x] Delivery burst / expiry fade (animasi bermakna data)
+- [x] Hover + klik inspect dot di mode live (tooltip < 16 ms hit-test)
+- [x] Verifikasi headless ALL PASSED (23 check, console 0, nol rAF baru)
+
+> **SELESAI 2026-10-02.** Nama jalan via replikasi simplifikasi graphgen atas
+> Overpass (graph routing tidak disentuh); glyph Inter PBF ±355 KB self-hosted;
+> 31 label ter-render di z15 ("Waisenstraße"); alphaSum heatmap 2,2× pada
+> surge ×4 dan dipulihkan ×1; hover hit-test 0,1–0,2 ms; kartu inspect live +
+> Escape; replay inspect tidak regresi; reduced-motion penuh.
+
+## Fase 9 — Autonomous QA suite + halaman Interview Q&A
+
+**DoD:** (spec: `PHASES/phase-09.md`)
+- [ ] Halaman `/interview` — ≥25 Q&A interviewer bersitasi ADR/angka terukur
+- [ ] Suite e2e terpadu 2 mode (lokal/prod) — satu command
+- [ ] Bug historis jadi tes permanen; console 0; commit & push

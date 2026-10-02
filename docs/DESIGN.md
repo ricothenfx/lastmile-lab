@@ -33,7 +33,10 @@ nyata — bukan dashboard tutorial.
 | `status.violet` | `#8B5CF6` | Rider delivering, elemen "in-flight" |
 | `map.water` | `#0F1B2D` | Area air peta |
 | `map.road` | `#223047` | Jalan peta (glow halus saat zoom) |
-| `zone.hot` | gradien `#FBBF24 → #FB7185` | Heatmap zona panas (bernapas) |
+| `map.roadGlow` | `#2E4265` | Glow jalan major saat zoom (fase 8) |
+| `map.label` | `#94A3B8` | Label jalan minor (fase 8; = text.secondary, AA 7,4×) |
+| `map.labelMajor` | `#CBD5E1` | Label jalan major (fase 8, AA 12,7×) |
+| `zone.hot` | gradien `#FBBF24 → #FB7185` | Heatmap zona panas (bernapas) — terimplementasi fase 8 |
 
 **Kontras:** semua kombinasi teks/surface wajib lolos WCAG AA. Dark theme bukan alasan
 kontras rendah.

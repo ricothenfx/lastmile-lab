@@ -5,28 +5,20 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** TIDAK ADA — **fase 0–7 SELESAI** (fase 7 opsional, dikerjakan
-  2026-10-01: AI Ops Copilot, spec `docs/PHASES/phase-07.md`, ADR D24).
-- **Kondisi:** Fase 7 SELESAI mode tanpa key — service `copilot` :4207
-  (profile `copilot` OFF-by-default, internal saja, 128 MiB): tanpa
-  `OPENAI_API_KEY` provider noop → capabilities `{"enabled":false}` → UI tidak
-  merender panel apa pun (0 node di DOM); regresi headless 6 layar + Golden
-  Demo 7/7 + replay PASSED, console 0. Advisor = ≤3 plan schema ketat →
-  dry-run via jalur duel existing (seed sama, 120 s virtual ≈ 0,2 s wall) →
-  eksekusi manual konfirmasi 2 langkah via endpoint kontrol existing (LLM
-  tidak pernah eksekusi). Ask Ops = jawaban wajib sitasi; tanpa sitasi 422.
-  **Copilot LIVE sejak 2026-10-02** (key pemilik di `deploy/.env`) — panel
-  ADVISOR/COPILOT tampil di UI produksi; evaluasi live 15 kasus selesai:
-  metrik 5/5 benar, diag surge/incident lemah (4 ditolak validator —
-  konteks tanpa surge/incident aktif; rincian di laporan §6). Bonus: bug proxy
-  replay 4 s-client terpotong di host berbeban ditemukan + diperbaiki
-  (client khusus 30 s — regresi SESI LIVE terverifikasi).
-- **Langkah berikutnya:** (opsional) polish portofolio. Sisa aksi pemilik:
-  monitor keyword `lastmile-api-healthz` di dashboard UptimeRobot (±2 menit,
-  resep runbook §5.5 — create via API fitur berbayar); verifikasi 60fps
-  laptop fisik **ditunda atas keputusan pemilik (2026-10-02)**. **Auto-deploy
-  backend TUNTAS** (sesi 10); **Copilot LIVE + evaluasi selesai** (sesi 11);
-  **UptimeRobot sebagian aktif** (frontend UP; log sesi 12).
+- **Fase aktif:** FASE 9 🔨 (Autonomous QA suite + halaman Interview Q&A —
+  spec `docs/PHASES/phase-09.md`). Fase 0–8 SELESAI.
+- **Kondisi:** **FASE 8 SELESAI 2026-10-02** (sesi 14): peta Live Ops naik
+  kelas — nama jalan OSM (glyph Inter self-hosted ±355 KB, replikasi
+  simplifikasi graphgen atas Overpass, graph routing tak disentuh), glow
+  jalan major saat zoom, heatmap zona bernapas mengikuti surge nyata
+  (ADR D25), delivery burst/expiry fade, dan hover + klik inspector live
+  (hit-test 0,1–0,2 ms; kartu inspect + Escape). Verifikasi headless
+  ALL PASSED 23 check (`reports/phase-08-map.md`), console 0, nol rAF idle
+  baru (28/2 s), reduced-motion penuh. Copilot tetap LIVE (sesi 11).
+- **Langkah berikutnya:** eksekusi fase 9 (halaman `/interview` + suite
+  `scripts/verify-all.mjs`); sisa aksi pemilik: monitor keyword
+  `lastmile-api-healthz` di dashboard UptimeRobot (±2 menit, runbook §5.5);
+  verifikasi 60fps laptop fisik tetap ditunda keputusan pemilik.
 - **Blokir/tergantung user:** none untuk koding. **GO-LIVE PRODUKSI TUNTAS**
   (backend + frontend LIVE publik).
 
@@ -57,6 +49,45 @@
    playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-02 — Fase 8: Map craft & map interactivity (sesi 14)
+
+Permintaan pemilik: peta tanpa nama jalan & kurang menarik; dot driver tidak
+bisa di-hover/klik. Empat kelompok kerja, semuanya client-side (backend &
+kontrak snapshot tidak berubah):
+
+- **Nama jalan**: `scripts/add-road-names.mjs` mereplikasi logika
+  simplifikasi graphgen (walk chain node derajat-2) atas data Overpass
+  mentah (4 kuadran via mirror maps.mail.ru — overpass-api.de 406/kumi 429
+  dari VPS), mayoritas nama segmen per chain → properti `n` di
+  `roads.geojson` (2,3→2,5 MB; match 52,3% — sisanya service road tak
+  bernama; 98,7% jalan major bernama; Friedrichstraße/Torstraße/Unter den
+  Linden ✓). **Graph routing byte-identical.** Glyph PBF "Inter Regular"
+  ±355 KB via fontnik (variable font → default instance 400; äöüß ✓) di
+  `public/fonts/Inter/` — nol font/tile provider (ADR D12 utuh).
+- **Peta hidup**: layer `roads-glow` (janji "glow halus saat zoom" DESIGN.md
+  terealisasi), 2 symbol layer label (major z13 / minor z14, halo, fade-in);
+  token baru `mapRoadGlow`/`mapLabel`/`mapLabelMajor` (AA 7,4× / 12,7×);
+  heatmap zona bernapas = densitas order per ±500 m mengikuti `st.su`
+  (**ADR D25**; alphaSum 0,64→1,39 = 2,2× saat surge ×4, dipulihkan ×1);
+  delivery burst violet/cyan + expiry fade coral dengan guard scrub.
+- **Interaktivitas**: hover dot → tooltip (rider: status, order dibawa,
+  jarak haversine; order: rider, rute, umur) — hit-test 0,1–0,2 ms pada
+  `pickData` per-frame yang sudah ada, tanpa re-render per gerakan mouse;
+  klik di mode live → kartu inspect (1 Hz refresh, Escape/klik kosong
+  menutup); klik replay → kartu reason fase 5 tidak regresi. `zone.hot`
+  DESIGN.md kini terimplementasi.
+- **Verifikasi**: `reports/phase-08-ui-verify.mjs` ALL PASSED — 23 check
+  termasuk probe `queryRenderedFeatures` (31 label, "Waisenstraße"), font
+  request 100% lokal, audit rAF idle 28/2 s (nol loop baru), burst counter,
+  reduced-motion, responsive 1024/768, console **0**. Laporan + 8 screenshot:
+  `reports/phase-08-map.md`, `reports/phase08-*.png`. Dijalankan terhadap
+  build produksi ber-env `wss://ws.`+`https://api.` (pola fase 6) + backend
+  produksi nyata; deploy Vercel mengikuti push.
+- Bug yang ditangkap verifikasi (pelajaran permanen di laporan §3):
+  filter `['has', ['get','n']]` salah (harus `['has','n']`), casing
+  direktori glyph (`/fonts/Inter/` vs `inter/`) = 404, dan `next start`
+  cache daftar public saat boot.
 
 ### 2026-10-02 — Fix peta kosong + UI 100% Inggris + panduan in-app (sesi 13)
 

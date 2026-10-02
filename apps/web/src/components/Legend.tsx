@@ -48,6 +48,27 @@ function LegendImpl() {
         <LegendRow icon={<DashedLine color={t.statusAmber} />} label="To pickup" />
         <LegendRow icon={<DashedLine color={t.statusViolet} />} label="In transit" />
       </div>
+      <div className="mb-2 mt-3 font-mono text-[10px] uppercase tracking-[0.12em] text-ink-secondary">
+        Zones
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <LegendRow
+          icon={
+            <span
+              aria-hidden
+              className="inline-block h-3 w-3 shrink-0 rounded-full"
+              style={{
+                background: `radial-gradient(circle, ${t.statusCoral}99, ${t.statusAmber}55 55%, transparent 75%)`,
+              }}
+            />
+          }
+          label="Order density (breathes with surge)"
+        />
+        <LegendRow icon={<DashedLine color={t.mapLabelMajor} />} label="Street names (zoom in)" />
+      </div>
+      <p className="mt-3 border-t border-line-subtle pt-2 font-mono text-[9px] leading-relaxed text-ink-muted">
+        Hover a dot for quick info — click to inspect.
+      </p>
     </aside>
   );
 }

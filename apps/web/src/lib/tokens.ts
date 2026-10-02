@@ -19,6 +19,9 @@ export const tokens = {
     statusViolet: '#8B5CF6',
     mapWater: '#0F1B2D',
     mapRoad: '#223047',
+    mapRoadGlow: '#2E4265',
+    mapLabel: '#94A3B8',
+    mapLabelMajor: '#CBD5E1',
   },
   radius: {
     input: '4px',
@@ -57,6 +60,9 @@ const colorVars: Record<keyof typeof tokens.color, string> = {
   statusViolet: 'status-violet',
   mapWater: 'map-water',
   mapRoad: 'map-road',
+  mapRoadGlow: 'map-road-glow',
+  mapLabel: 'map-label',
+  mapLabelMajor: 'map-label-major',
 };
 
 const radiusVars: Record<keyof typeof tokens.radius, string> = {
