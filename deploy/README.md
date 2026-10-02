@@ -229,13 +229,28 @@ curl https://ws.lastmile-lab.ricothen.com/healthz   → 200 (ws-gateway)
 Health internal 24 jam: semua service expose `/healthz` (§7); UptimeRobot memantau
 sisi internet (Caddy → api-gateway) — titik fail paling awal yang dilihat pengunjung.
 
-## 6. DNS (action items pemilik domain)
+## 6. DNS (pemilik domain) — ✅ SEMUA AKTIF (terverifikasi 2026-10-01/02)
 
-| Record | Nilai | Kapan |
+| Record | Nilai | Status |
 |---|---|---|
-| `lastmile-lab` | CNAME `cname.vercel-dns.com` | Fase 1 (saat deploy Vercel) |
-| `api.lastmile-lab` | A → IP VPS | Fase 2 |
-| `ws.lastmile-lab` | A → IP VPS | Fase 1 |
+| `lastmile-lab` | CNAME `cname.vercel-dns.com` | ✅ hidup — project Vercel `lastmile-lab` (2026-10-02) |
+| `api.lastmile-lab` | A → IP VPS | ✅ hidup — Caddy + ACME |
+| `ws.lastmile-lab` | A → IP VPS | ✅ hidup — Caddy + ACME |
+
+## 6.1 Frontend Vercel (project `lastmile-lab`)
+
+- **Deploy otomatis**: repo GitHub terhubung — push ke `main` (perubahan `apps/web`)
+  → build di infra Vercel → production `lastmile-lab.ricothen.com` otomatis.
+  Jalur manual setara: `vercel deploy --prod` dari `apps/web` (CLI v62, project linked).
+- **Env produksi** (project settings → Environment Variables, scope Production):
+  `NEXT_PUBLIC_WS_URL=wss://ws.lastmile-lab.ricothen.com/ws`,
+  `NEXT_PUBLIC_API_URL=https://api.lastmile-lab.ricothen.com` — dipakai saat build
+  (Next.js membake `NEXT_PUBLIC_*` di build time; ubah env → deploy ulang).
+- **Deployment Protection: OFF** (situs portofolio publik — Vercel Authentication
+  dimatikan via API, Attack Challenge Mode OFF via dashboard; nyala = semua
+  pengunjung kena "Security Checkpoint", termasuk korporat/VPN). Protected
+  sourcemaps boleh ON.
+- Rollback: Vercel dashboard → Deployments → pilih versi → Promote to Production.
 
 ## 7. Kesehatan & Ketahanan 24 Jam
 

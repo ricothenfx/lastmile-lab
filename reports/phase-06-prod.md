@@ -30,14 +30,27 @@ curl https://ws.lastmile-lab.ricothen.com/healthz
 mencapai **LIVE LINK** — berarti `wss://` + REST `https://` publik bekerja
 penuh lewat Caddy (`reports/phase06-prod-live.png`).
 
-### 1.1 Sisa aksi pemilik (satu-satunya go-live yang belum aktif)
+### 1.1 Frontend Vercel — LIVE (2026-10-02)
 
-- **Vercel**: import repo (root dir `apps/web`), set env `NEXT_PUBLIC_WS_URL=
-  wss://ws.lastmile-lab.ricothen.com/ws` + `NEXT_PUBLIC_API_URL=https://api.
-  lastmile-lab.ricothen.com`, assign domain `lastmile-lab.ricothen.com`.
-  Saat sesi ini, domain masih menolak TLS (`SSL_ERROR_SYSCALL` — domain belum
-  di-assign ke project Vercel). Frontend tanpa backend → replay mode (tidak
-  pernah putih); tidak ada perubahan repo yang diperlukan.
+Domain `lastmile-lab.ricothen.com` kini **hidup publik**:
+
+- Project Vercel `lastmile-lab` (account ricothenfx, team
+  `ricothenfxs-projects`), root `apps/web`, **GitHub-integrated** — push `main`
+  → auto-deploy production (jalur manual setara: `vercel deploy --prod`).
+- Env produksi terpasang (scope Production): `NEXT_PUBLIC_WS_URL=wss://ws.…
+  /ws`, `NEXT_PUBLIC_API_URL=https://api.…` — dibake saat build.
+- Domain terverifikasi & auto-assigned ke production; **Deployment Protection
+  dimatikan** (Vercel Authentication OFF via API `ssoProtection: null`;
+  Attack Challenge Mode OFF via dashboard — saat ON, SEMUA pengunjung termasuk
+  browser asli terhalang "Vercel Security Checkpoint" 403; protected
+  sourcemaps tetap ON).
+- **Verifikasi headless** (`reports/phase-06-vercel-verify.mjs`,
+  `phase06-vercel-live.png` / `phase06-vercel-replay.png`):
+  LIVE LINK via https://lastmile-lab.ricothen.com · KPI via api. publik 200 ·
+  blokir api./ws. dari browser → banner REPLAY MODE · console error 0.
+
+Sisa aksi pemilik go-live tinggal: 3 secret GitHub (auto-deploy backend),
+aktivasi UptimeRobot, cek 60fps laptop fisik (lihat PROGRESS).
 
 ## 2. CI/CD: push → build → image → deploy
 
@@ -173,7 +186,7 @@ dilaporkan apa adanya.
 | DoD | Status |
 |---|---|
 | HTTPS hidup api.+ws. — healthz hijau dari internet | ✅ (200 via domain) |
-| Frontend lastmile-lab.ricothen.com (Vercel) | ⏳ **aksi pemilik** (DNS ✅, kode+env ✅, import+assign domain sisa) |
+| Frontend lastmile-lab.ricothen.com (Vercel) | ✅ LIVE 200 publik (§1.1 — project `lastmile-lab`, auto-deploy GitHub, protection OFF) |
 | CI/CD push→build→image→deploy (otomatis / satu perintah) | ✅ job deploy + `scripts/deploy.sh`; siklus nyata di commit fase 6; auto-deploy aktif setelah secret pemilik |
 | UptimeRobot /healthz | 📋 setup terdokumentasi runbook §5.5 (aktivasi = pemilik) |
 | Log rotation aktif | ✅ (json-file 10m ×3, inspect live) |
@@ -183,9 +196,9 @@ dilaporkan apa adanya.
 | Artikel teknis | ✅ `docs/blog/dispatch-explainability.md` |
 | Keamanan dasar + keputusan exposure mutasi | ✅ ADR D23 + runbook §9 |
 
-**Kesimpulan**: seluruh pekerjaan sisi repo selesai & hijau. Sisa aksi pemilik
-(yang tidak memblokir penyelesaian fase, konvensi sama seperti fase 1–5):
-(1) import Vercel + assign domain frontend; (2) 3 secret GitHub untuk
-auto-deploy; (3) aktivasi monitor UptimeRobot; (4) verifikasi 60fps di laptop
-fisik (prosedur di PROGRESS). Semua langkah tertulis di `deploy/README.md` §4.0
-& §5.5 serta PROGRESS.md.
+**Kesimpulan**: seluruh pekerjaan sisi repo selesai & hijau; frontend produksi
+LIVE. Sisa aksi pemilik (tidak memblokir penyelesaian fase, konvensi sama
+seperti fase 1–5): (1) 3 secret GitHub untuk auto-deploy backend; (2) aktivasi
+monitor UptimeRobot; (3) verifikasi 60fps di laptop fisik (prosedur di
+PROGRESS). Semua langkah tertulis di `deploy/README.md` §4.0, §5.5, §6.1 serta
+PROGRESS.md.

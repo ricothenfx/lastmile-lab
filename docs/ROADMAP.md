@@ -132,9 +132,12 @@ Status legenda: ⬜ belum mulai · 🔨 sedang dikerjakan · ✅ selesai · ➖ 
 - [x] Uji beban produksi ringan + pemeriksaan keamanan dasar (no secrets, CORS, rate limit)
 - [x] Commit & push
 
-> **SELESAI 2026-10-01.** api.+ws. HTTPS hidup dari internet (healthz 200 via
-> domain, WS upgrade TLS terverifikasi end-to-end headless); DNS aktif oleh
-> pemilik; frontend Vercel = sisa aksi pemilik (kode+env siap). CI/CD: job
+> **SELESAI 2026-10-01 (frontend live 2026-10-02).** api.+ws. HTTPS hidup dari
+> internet (healthz 200 via domain, WS upgrade TLS terverifikasi end-to-end
+> headless); DNS aktif oleh pemilik; **frontend Vercel LIVE di
+> lastmile-lab.ricothen.com** (project `lastmile-lab`, GitHub-integrated
+> auto-deploy, env produksi terpasang, Deployment Protection OFF, verifikasi
+> headless: LIVE + fallback REPLAY — `reports/phase06-vercel-*.png`). CI/CD: job
 > `deploy` (skip-warning tanpa secret) + `scripts/deploy.sh` — siklus nyata
 > push→build→image→pull+up+healthz di commit fase 6. UptimeRobot: setup di
 > runbook §5.5 (aktivasi pemilik); log rotation live 10m×3. RAM: 1 888 MiB
