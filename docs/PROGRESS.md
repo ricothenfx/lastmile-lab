@@ -5,9 +5,10 @@
 
 ## Status Saat Ini
 
-- **Fase aktif:** TIDAK ADA — **fase 0–9 SELESAI** (fase 9: Autonomous QA
-  suite `scripts/verify-all.mjs` + halaman `/interview` 36 Q&A bersitasi —
-  `reports/phase-09-qa.md`; 33 PASS / 0 FAIL mode local).
+- **Fase aktif:** TIDAK ADA — **fase 0–9 SELESAI + TERVERIFIKASI DI
+  PRODUKSI** (verify-all `--target=prod` pasca-push: **27 PASS / 0 FAIL**
+  — `/interview` live: 36 Q&A / 36 sitasi; peta fase 8: label/glow/heat/
+  hover semua lolos di produksi; surge dipulihkan ×1; console 0).
 - **Kondisi:** **FASE 9 SELESAI 2026-10-02** (sesi 14): satu command
   memeriksa 16 suite (map/interact/heat/bursts/kpi/replay/offline/interview/
   copilot/a11y/perf/console + chaos/lab/demo khusus local) — 33 PASS / 0
@@ -19,9 +20,9 @@
   build produksi identik; runbook §6 diperbarui. Fase 8 (peta: nama jalan
   OSM, glow, heatmap D25, burst, hover/klik inspector — 23 check ALL
   PASSED) tetap utuh, detail di log di bawah.
-- **Langkah berikutnya:** verifikasi pasca-deploy `/interview` di produksi
-  dari IP non-VPS (lihat `reports/phase-09-qa.md` §4); sisa aksi pemilik:
-  monitor keyword UptimeRobot, verifikasi 60fps laptop fisik.
+- **Langkah berikutnya:** sisa aksi pemilik: monitor keyword UptimeRobot,
+  verifikasi 60fps laptop fisik. Verifikasi otonom kapan pun:
+  `scripts/verify-all.mjs --target=prod|local`.
 - **Blokir/tergantung user:** none untuk koding. **GO-LIVE PRODUKSI TUNTAS**
   (backend + frontend LIVE publik).
 
@@ -78,8 +79,10 @@
   urutan lab→chaos, gate kebenaran berbasis hasil akhir (self-heal /
   status done), diagnostik hydrate untuk host load 8+.
 - **Catatan lingkungan**: Vercel Security Checkpoint 403 untuk IP VPS
-  (curl + headless; manusia & monitor eksternal lolos) → verifikasi prod
-  memakai build produksi identik; runbook §6 diperbarui.
+  sempat terjadi (±1 jam); **terbuka kembali pasca-push** → verify-all
+  `--target=prod` dijalankan penuh di produksi live: **27 PASS / 0 FAIL**
+  (surge dipulihkan ×1) — artifacts `reports/verify-prod/`; runbook §6
+  tetap dicatat untuk kasus ke depan.
 
 ### 2026-10-02 — Fase 8: Map craft & map interactivity (sesi 14)
 

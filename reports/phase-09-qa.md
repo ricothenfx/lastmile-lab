@@ -1,9 +1,25 @@
 # PHASE 09 REPORT — Autonomous QA Suite + Interview Page
 
-> Tanggal: 2026-10-02 · **verify-all mode local: 33 PASS / 0 FAIL**
-> (`reports/verify-local/summary.json` + 9 screenshot) · build produksi
-> identik-commit (env `wss://ws.`+`https://api.` dibaked) + backend produksi
-> nyata · tsc clean · `/interview` static prerender (96,2 kB first load).
+> Tanggal: 2026-10-02 · **verify-all mode prod (PRODUKSI LIVE): 27 PASS /
+> 0 FAIL** (`reports/verify-prod/summary.json` + 8 screenshot) · mode local:
+> **33 PASS / 0 FAIL** (`reports/verify-local/summary.json`) · build produksi
+> identik-commit · tsc clean · `/interview` static prerender (96,2 kB first
+> load) · **console 0 di kedua mode**.
+
+## 0. Verifikasi produksi (pasca-push) — 27 PASS / 0 FAIL
+
+Vercel checkpoint terbuka kembali (200) → `--target=prod` dijalankan penuh
+terhadap `https://lastmile-lab.ricothen.com` yang SUDAH di-deploy fase 8+9:
+
+- smoke LIVE + healthz 200 · map: 31 label jalan ("Waisenstraße"), glyphs
+  self-hosted, layer glow/label ada · hover tooltip (hit-test 0,1 ms) +
+  kartu inspect + Escape · heat alphaSum 0,575→1,826 saat surge ×4 dan
+  dipulihkan ×1 · burst counter · KPI angka nyata · replay inspect tidak
+  regresi · offline fallback → REPLAY MODE → pulih · **/interview di
+  produksi: HTTP 200, 36 Q&A / 8 kategori, 36/36 sitasi** · copilot konsisten
+  (key aktif → panel) · reduced-motion · rAF idle 24/2 s · **console 0**.
+- Artifacts: `reports/verify-prod/` (summary.json + 8 screenshot).
+
 
 ## 1. Halaman `/interview`
 
@@ -79,10 +95,13 @@ interview, reduced-motion, offline-replay, chaos-healed, smoke).
 
 ## 5. DoD fase 9
 
-- [x] Halaman `/interview` ≥25 Q&A / 8 kategori bersitasi (36/36) — hidup
-      di build produksi; statis (tanpa call backend); link TopBar.
-- [x] `verify-all` local → 33 PASS / 0 FAIL satu command; mutasi dipulihkan
-      (surge ×1, demo di-stop, strategy-lab pulih sendiri).
-- [x] Mode prod terimplementasi (subset read-only; lihat §4 soal checkpoint).
-- [x] Screenshot + summary.json di `reports/verify-local/`; laporan ini.
-- [x] Docs: PROGRESS + ROADMAP fase 9 ✅ — satu commit dengan kodenya.
+- [x] Halaman `/interview` hidup di PRODUKSI (pasca-push: HTTP 200, 36 Q&A /
+      8 kategori, 36/36 sitasi, console 0) — statis (tanpa call backend);
+      link dari TopBar.
+- [x] `verify-all --target=local` → 33 PASS / 0 FAIL; `--target=prod` →
+      **27 PASS / 0 FAIL di produksi live** (surge dipulihkan ×1).
+- [x] Mode prod terimplementasi (subset read-only; checkpoint IP VPS bersifat
+      sementara — lihat §4; run terakhir lolos penuh).
+- [x] Screenshot + summary.json di `reports/verify-local/` dan
+      `reports/verify-prod/`; laporan ini.
+- [x] Docs: PROGRESS + ROADMAP fase 9 ✅.

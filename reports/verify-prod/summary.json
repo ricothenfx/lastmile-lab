@@ -1,0 +1,168 @@
+{
+  "target": "prod",
+  "base": "https://lastmile-lab.ricothen.com",
+  "pass": 27,
+  "fails": 0,
+  "results": [
+    [
+      "open.goto",
+      "HTTP 200 https://lastmile-lab.ricothen.com/",
+      null
+    ],
+    [
+      "smoke.mode",
+      "LIVE",
+      true
+    ],
+    [
+      "smoke.healthz",
+      "HTTP 200",
+      true
+    ],
+    [
+      "map.glyphs_selfhosted",
+      "/fonts/{fontstack}/{range}.pbf",
+      true
+    ],
+    [
+      "map.layer_roads-glow",
+      "ok",
+      true
+    ],
+    [
+      "map.layer_roads-label-major",
+      "ok",
+      true
+    ],
+    [
+      "map.layer_roads-label-minor",
+      "ok",
+      true
+    ],
+    [
+      "map.street_labels",
+      "31 label, contoh \"Waisenstraße\"",
+      true
+    ],
+    [
+      "map.hover_tooltip",
+      "ok (RIDER r0)",
+      true
+    ],
+    [
+      "map.hover_hit_test_ms",
+      "0.100 ms",
+      true
+    ],
+    [
+      "map.live_inspect",
+      "ok",
+      true
+    ],
+    [
+      "map.inspect_escape_close",
+      "ok",
+      true
+    ],
+    [
+      "heat.probe",
+      "cells=10 max=5 total=60 su=1",
+      true
+    ],
+    [
+      "heat.surge_echo",
+      "su=4",
+      true
+    ],
+    [
+      "heat.intensifies",
+      "alphaSum 0.575→1.826",
+      true
+    ],
+    [
+      "heat.surge_restored",
+      "ok (×1)",
+      true
+    ],
+    [
+      "bursts.counters",
+      "delivered=1 expired=5",
+      true
+    ],
+    [
+      "kpi.endpoint",
+      "HTTP 200",
+      true
+    ],
+    [
+      "kpi.shape",
+      "ts_ms,source,sim,orders_per_min,delivered_per_min,queue",
+      null
+    ],
+    [
+      "kpi.has_metrics",
+      "ok",
+      true
+    ],
+    [
+      "replay.source",
+      "LIVE SESSION",
+      null
+    ],
+    [
+      "replay.inspect_card",
+      "ok",
+      true
+    ],
+    [
+      "offline.replay_banner",
+      "REPLAY MODE tampil tanpa backend",
+      true
+    ],
+    [
+      "offline.recovery",
+      "kembali hidup setelah unblock",
+      true
+    ],
+    [
+      "interview.http",
+      "HTTP 200 @ https://lastmile-lab.ricothen.com/interview",
+      null
+    ],
+    [
+      "interview.qa_count",
+      "36 Q&A / 8 kategori",
+      true
+    ],
+    [
+      "interview.evidence_labels",
+      "36 sitasi",
+      true
+    ],
+    [
+      "copilot.enabled",
+      "panel tampil (0 label di DOM) — key aktif",
+      null
+    ],
+    [
+      "a11y.reduced_heat_flag",
+      "reduced=true",
+      true
+    ],
+    [
+      "a11y.reduced_tooltip",
+      "ok — interaksi tetap bekerja",
+      true
+    ],
+    [
+      "perf.raf_idle_2s",
+      "24",
+      true
+    ],
+    [
+      "console.errors",
+      "0",
+      true
+    ]
+  ]
+}
