@@ -20,11 +20,12 @@
   replay 4 s-client terpotong di host berbeban ditemukan + diperbaiki
   (client khusus 30 s — regresi SESI LIVE terverifikasi).
 - **Langkah berikutnya:** (opsional) polish portofolio. Sisa aksi pemilik
-  (bukan blokir repo): 3 secret GitHub (`DEPLOY_SSH_KEY/HOST/USER`) untuk
-  auto-deploy; aktivasi monitor UptimeRobot (runbook §5.5); verifikasi 60fps
-  di laptop fisik (prosedur di bawah); bila ingin menyalakan copilot: isi
-  `LASTMILE_OPENAI_API_KEY` di `.env` + profile `copilot` (runbook §4.4) lalu
-  eksekusi evaluasi §6 laporan.
+  (bukan blokir repo): aktivasi monitor UptimeRobot (runbook §5.5); verifikasi
+  60fps di laptop fisik (prosedur di bawah); bila ingin menyalakan copilot:
+  isi `LASTMILE_OPENAI_API_KEY` di `deploy/.env` (BUKAN root `.env` — runbook
+  §4.4) + profile `copilot` lalu eksekusi evaluasi §6 laporan. Auto-deploy
+  backend: 3 secret GitHub TERPASANG + fix jalur SSH dipush (log sesi 10);
+  verifikasi job `deploy` CI pada run pemicu commit fix.
 - **Blokir/tergantung user:** none untuk koding. **GO-LIVE PRODUKSI TUNTAS**
   (backend + frontend LIVE publik).
 
@@ -49,6 +50,31 @@
    playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-02 — Auto-deploy aktif: 3 secret GitHub + fix jalur SSH CI (sesi 10)
+
+- **3 secret GitHub terpasang** (repo `ricothenfx/lastmile-lab`): `DEPLOY_SSH_KEY`
+  (keypair ed25519 khusus deploy, `~/.ssh/lastmile_deploy` di VPS, pub ke
+  `authorized_keys`, tes BatchMode loopback OK), `DEPLOY_SSH_HOST`
+  (`194.233.67.201`), `DEPLOY_SSH_USER` (`rico`). Key privat tidak pernah
+  menyentuh git/CI log.
+- **Bug laten ditemukan & diperbaiki**: run `images` pertama pasca-secret —
+  build 10/10 hijau tetapi job `deploy` GAGAL `Permission denied (publickey)`:
+  workflow menulis key ke `~/.ssh/deploy_key` sementara `deploy.sh` memanggil
+  `ssh` TANPA `-i` (runner tanpa identitas default; jalur SSH CI memang belum
+  pernah teruji — job selalu skip sebelum secret ada). Fix: `deploy.sh` menerima
+  `DEPLOY_SSH_KEY_FILE` opsional, workflow meng-export `$HOME/.ssh/deploy_key`.
+  Terverifikasi dari VPS: `DEPLOY_SSH_HOST=rico@127.0.0.1 DEPLOY_SSH_KEY_FILE=…
+  ./scripts/deploy.sh` → load 6.58<8 → pull → up -d → healthz 200 →
+  "Deploy selesai" (6/6 kontainer healthy; image identik, tanpa recreate).
+- **Runbook §4.4 + comment compose dikoreksi**: key copilot wajib ke
+  `deploy/.env`, BUKAN root `.env` — project directory compose = `deploy/`;
+  diverifikasi empiris via `docker compose config` (dummy probe: root `.env`
+  → resolusi kosong; `deploy/.env` → terbaca; dummy dibersihkan setelahnya).
+  `.gitignore` sudah mencakup kedua lokasi.
+- CI run pemicu perbaikan = push commit ini (paths cocok
+  `.github/workflows/images.yaml`); hasil job `deploy` dicatat di commit
+  dokumentasi penyusul.
 
 ### 2026-10-02 — Go-live frontend Vercel (sesi 9)
 

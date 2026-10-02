@@ -8,7 +8,7 @@
 #   ... + --profile loadtest                                                # tambah load-generator (hanya saat pengujian)
 #   ... + --profile chaos                                                   # chaos injector + incident timeline (Fase 4)
 #   ... + --profile copilot                                                 # AI Ops Copilot (Fase 7) — OFF-by-default:
-#                                                                           # butuh LASTMILE_OPENAI_API_KEY di .env (aksi pemilik);
+#                                                                           # butuh LASTMILE_OPENAI_API_KEY di deploy/.env (aksi pemilik);
 #                                                                           # tanpa key UI menyembunyikan panel copilot (ADR D24)
 #
 # Image backend dibangun GitHub Actions → GHCR (deploy/README.md §4);

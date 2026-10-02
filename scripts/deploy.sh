@@ -4,8 +4,9 @@
 # Dua cara pakai:
 #   1. Di VPS langsung:   ./scripts/deploy.sh
 #   2. Dari mesin lain:   DEPLOY_SSH_HOST=user@vps ./scripts/deploy.sh
-#      (SSH key harus sudah ada di agent / ~/.ssh — dipakai GitHub Actions
-#       job `deploy` dengan secret DEPLOY_SSH_KEY, deploy/README.md §4.)
+#      (+ DEPLOY_SSH_KEY_FILE=<key privat> bila bukan identitas default —
+#       dipakai GitHub Actions job `deploy` dengan secret DEPLOY_SSH_KEY,
+#       deploy/README.md §4.)
 #
 # Urutan: cek load host → pull image GHCR → up -d → verifikasi /healthz.
 # Build TIDAK pernah dijalankan di sini (aturan keras: build = GitHub Actions).
@@ -17,7 +18,10 @@ LOAD_MAX="${DEPLOY_LOAD_MAX:-8}"
 
 run() {
   if [ -n "${DEPLOY_SSH_HOST:-}" ]; then
-    ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$DEPLOY_SSH_HOST" "$1"
+    # DEPLOY_SSH_KEY_FILE: key privat opsional (dipakai job GitHub Actions —
+    # runner tidak punya identitas default, ssh tanpa -i → Permission denied).
+    ssh ${DEPLOY_SSH_KEY_FILE:+-i "$DEPLOY_SSH_KEY_FILE"} \
+      -o BatchMode=yes -o StrictHostKeyChecking=accept-new "$DEPLOY_SSH_HOST" "$1"
   else
     bash -c "$1"
   fi

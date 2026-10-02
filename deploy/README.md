@@ -172,9 +172,11 @@ docker compose -p lastmile -f deploy/compose.yaml -f deploy/compose.pipeline.yam
   `GET /api/copilot/capabilities` → `{"enabled":false}`, UI menyembunyikan panel
   (ADR D24). Mode demo default (`--profile sim --profile chaos`) tidak berubah.
 - **Mengaktifkan (aksi PEMILIK — jangan pernah menaruh key di repo/git):**
-  1. `echo 'LASTMILE_OPENAI_API_KEY=sk-...' >> /home/rico/portfolio/lastmile-lab/.env`
-     (opsional: `LASTMILE_OPENAI_BASE_URL` untuk provider OpenAI-compatible lain,
-     `LASTMILE_OPENAI_MODEL`, default `gpt-4o-mini`).
+  1. `echo 'LASTMILE_OPENAI_API_KEY=sk-...' >> /home/rico/portfolio/lastmile-lab/deploy/.env`
+     — **HARUS `deploy/.env`** (project directory compose; root `.env` TIDAK
+     terbaca — diverifikasi empiris via `docker compose config`, 2026-10-02).
+     Opsional: `LASTMILE_OPENAI_BASE_URL` untuk provider OpenAI-compatible lain,
+     `LASTMILE_OPENAI_MODEL`, default `gpt-4o-mini`.
   2. `docker compose -p lastmile --profile sim --profile chaos --profile copilot pull && \
      docker compose -p lastmile --profile sim --profile chaos --profile copilot up -d`
   3. Verifikasi: `curl -s localhost:3010/api/copilot/capabilities` → `{"enabled":true}`;
