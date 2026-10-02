@@ -87,6 +87,13 @@ Indonesia, dan pengguna baru bingung cara memakai dashboard. Tiga perbaikan:
   bukan bookworm), `go test` dispatch+model+api-gateway ✅. Deploy: frontend
   otomatis via Vercel; backend images otomatis via CI (paths filter kena:
   demo.go + dispatch + engine berubah).
+- **Hasil produksi (bukti `reports/phase13-map-dots-live.png` +
+  `phase13-guide-firstrun.png`)**: peta penuh dot rider + garis assignment
+  (kali pertama sejak fase 1!), guide auto-terbuka, 0 leftover Indonesia
+  (probe innerText), 0 console error. Deploy backend pertama ditolak load
+  guard (9,66 > 8 — perilaku benar, sesi desktop x2go sedang berat), rerun
+  sukses saat load 7,3: demo preset produksi kini Inggris
+  ("Dinner Rush in Berlin…"), healthz 200.
 
 ### 2026-10-02 — UptimeRobot sebagian aktif; 60fps ditunda pemilik (sesi 12)
 
