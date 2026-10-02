@@ -109,7 +109,7 @@ git push main (apps/services/** berubah)
               = cek load → compose pull → up -d (profile sim + chaos) → curl /healthz
 ```
 
-**Prasyarat sekali (aksi pemilik akun GitHub):**
+**Prasyarat sekali (aksi pemilik akun GitHub) — ✅ TERPASANG 2026-10-02:**
 
 ```bash
 # 1. Buat keypair khusus deploy (JANGAN pakai key personal) + pasang public key
@@ -120,6 +120,11 @@ gh secret set DEPLOY_SSH_HOST < hostname / IP publik VPS>
 gh secret set DEPLOY_SSH_USER < rico>
 ```
 
+- ✅ Status: `DEPLOY_SSH_KEY` (keypair `~/.ssh/lastmile_deploy`), `DEPLOY_SSH_HOST`
+  (`194.233.67.201`), `DEPLOY_SSH_USER` (`rico`) terpasang; job `deploy` CI
+  SUKSES end-to-end (run `36956804558` — log PROGRESS sesi 10). Workflow mengisi
+  `DEPLOY_SSH_KEY_FILE` otomatis — job deploy butuh fix itu karena runner CI
+  tidak punya identitas default (ssh tanpa `-i` → Permission denied).
 - Tanpa `DEPLOY_SSH_KEY`, job `deploy` **SKIP dengan warning — CI tetap hijau**
   (auto-deploy tinggal aktif begitu secret dipasang; tidak ada perubahan workflow lagi).
 - Deploy manual satu perintah (jalur yang sama persis dengan job deploy):

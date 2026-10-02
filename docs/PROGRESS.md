@@ -23,9 +23,8 @@
   (bukan blokir repo): aktivasi monitor UptimeRobot (runbook §5.5); verifikasi
   60fps di laptop fisik (prosedur di bawah); bila ingin menyalakan copilot:
   isi `LASTMILE_OPENAI_API_KEY` di `deploy/.env` (BUKAN root `.env` — runbook
-  §4.4) + profile `copilot` lalu eksekusi evaluasi §6 laporan. Auto-deploy
-  backend: 3 secret GitHub TERPASANG + fix jalur SSH dipush (log sesi 10);
-  verifikasi job `deploy` CI pada run pemicu commit fix.
+  §4.4) + profile `copilot` lalu eksekusi evaluasi §6 laporan. **Auto-deploy
+  backend TUNTAS** — secret terpasang, job `deploy` CI hijau (log sesi 10).
 - **Blokir/tergantung user:** none untuk koding. **GO-LIVE PRODUKSI TUNTAS**
   (backend + frontend LIVE publik).
 
@@ -35,10 +34,12 @@
    (project Vercel `lastmile-lab`, GitHub-integrated auto-deploy, env produksi
    terpasang, Deployment Protection OFF, domain `lastmile-lab.ricothen.com`
    200 publik — bukti `reports/phase-06-prod.md` §1.1 + `phase06-vercel-*.png`).
-2. **Secret GitHub** (Settings → Secrets → Actions): `DEPLOY_SSH_KEY`
+2. ~~**Secret GitHub** (Settings → Secrets → Actions): `DEPLOY_SSH_KEY`
    (keypair khusus deploy, publik ke authorized_keys VPS), `DEPLOY_SSH_HOST`,
-   `DEPLOY_SSH_USER` — begitu di-set, job `deploy` otomatis jalan tiap push
-   `apps/services/**`; tanpa itu job skip-warning (CI tetap hijau).
+   `DEPLOY_SSH_USER`~~ — **✅ TUNTAS 2026-10-02**: 3 secret terpasang + fix
+   jalur SSH (`DEPLOY_SSH_KEY_FILE`) → job `deploy` CI SUKSES end-to-end
+   (run `36956804558`: 4 langkah deploy.sh + "Deploy selesai"; log sesi 10).
+   Auto-deploy kini aktif tiap push `apps/services/**`.
 3. **UptimeRobot**: ikuti `deploy/README.md` §5.5 (monitor `https://api.
    lastmile-lab.ricothen.com/healthz`, interval 5 menit; boleh tambah monitor
    frontend `https://lastmile-lab.ricothen.com` — kini LIVE).
@@ -72,9 +73,17 @@
   diverifikasi empiris via `docker compose config` (dummy probe: root `.env`
   → resolusi kosong; `deploy/.env` → terbaca; dummy dibersihkan setelahnya).
   `.gitignore` sudah mencakup kedua lokasi.
-- CI run pemicu perbaikan = push commit ini (paths cocok
-  `.github/workflows/images.yaml`); hasil job `deploy` dicatat di commit
-  dokumentasi penyusul.
+- **Verifikasi job `deploy` CI hingga hijau**: run pemicu fix (`36956681280`)
+  GAGAL di **load guard** — loadavg 8.48 > 8, deploy ditunda (guard bekerja
+  semestinya; SSH sudah lolos). Load turun → dispatch ulang → run
+  **`36956804558` SUKSES**: loadavg 5.83 < 8 → pull → up -d → healthz 200 →
+  "Deploy selesai" di log CI. VPS pasca-deploy: 6/6 kontainer healthy,
+  `api./healthz` 200, frontend 200, `/api/replay/sessions` 200.
+- **Regresi UI rantai publik PASSED** (`reports/phase-06-vercel-verify.mjs`
+  MODE=live via image playwright 1.63): LIVE LINK via Vercel, KPI via api.
+  publik 200, fallback REPLAY MODE saat api./ws. diblokir, console error 0.
+- Bonus commit ikutan: `apps/web/.gitignore` dilengkapi `!.env.example`
+  (sisa sesi 9 yang belum ter-commit; file sudah placeholder-only).
 
 ### 2026-10-02 — Go-live frontend Vercel (sesi 9)
 
