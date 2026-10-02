@@ -242,6 +242,9 @@ sisi internet (Caddy → api-gateway) — titik fail paling awal yang dilihat pe
 - **Deploy otomatis**: repo GitHub terhubung — push ke `main` (perubahan `apps/web`)
   → build di infra Vercel → production `lastmile-lab.ricothen.com` otomatis.
   Jalur manual setara: `vercel deploy --prod` dari `apps/web` (CLI v62, project linked).
+  **Penting**: project settings → **Root Directory = `apps/web`** (tanpa ini build
+  git-integration gagal ERROR — build dari root repo tanpa package.json; sudah
+  diset via API dan terbukti READY 2026-10-02).
 - **Env produksi** (project settings → Environment Variables, scope Production):
   `NEXT_PUBLIC_WS_URL=wss://ws.lastmile-lab.ricothen.com/ws`,
   `NEXT_PUBLIC_API_URL=https://api.lastmile-lab.ricothen.com` — dipakai saat build
