@@ -17,7 +17,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Pulse — Live Ops Map | lastmile-lab',
   description:
-    'Control room untuk operasi last-mile: rider bergerak di jalan nyata Berlin, order streaming realtime, dispatch FIFO yang bisa dijelaskan.',
+    'Control room for last-mile ops: riders moving on real Berlin streets, realtime order streaming, explainable FIFO dispatch.',
 };
 
 export const viewport: Viewport = {

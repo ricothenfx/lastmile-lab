@@ -81,11 +81,11 @@ function HelpOverlayImpl({ open, onClose }: { open: boolean; onClose: () => void
       role="dialog"
       aria-modal="true"
       aria-label="How to use Pulse"
-      className="fixed inset-0 z-50 grid place-items-center bg-surface-base/80 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 grid place-items-center bg-surface-base/95 p-4 backdrop-blur-md"
       onClick={onClose}
     >
       <div
-        className="max-h-[86vh] w-[min(760px,100vw-2rem)] overflow-y-auto rounded-panel border border-line-subtle bg-surface-raised/95 p-5 shadow-2xl"
+        className="max-h-[86vh] w-[min(760px,100vw-2rem)] overflow-y-auto rounded-panel border border-line-subtle bg-surface-raised p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">

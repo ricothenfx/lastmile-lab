@@ -231,6 +231,10 @@ curl https://ws.lastmile-lab.ricothen.com/healthz   → 200 (ws-gateway)
   create monitor = **fitur berbayar** (terbukti 2026-10-02: `newMonitor`
   minimal → `access_denied` "not allowed with your current plan", sementara
   `getMonitors`/`editMonitor` → ok; Main API key valid).
+  **Keputusan 2026-10-02: tetap plan gratis** — yang berbayar hanya
+  kemudahan create-via-API; monitoring sendiri gratis (50 monitor, 5 menit).
+  Monitor dibuat sekali manual di dashboard (±2 menit, resep di bawah) dan
+  selesai — tidak ada dependency berbayar di stack ini.
 - Resep manual (dashboard, ±2 menit): Add New Monitor → tipe **Keyword** →
   Friendly Name `lastmile-api-healthz` → URL `https://api.lastmile-lab.
   ricothen.com/healthz` → Keyword `"ok":true` (dengan kutip) → kondisi alert
