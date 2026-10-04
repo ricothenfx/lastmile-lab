@@ -204,26 +204,35 @@ try {
       : 'GAGAL',
   );
   // hover → garis assignment entitas itu tampil walau zoom-out (cari rider
-  // yang membawa order — rider idle tidak punya garis). Posisi diambil FRESH
-  // tiap percobaan — rider bergerak antar iterasi.
-  let linesHover = 0;
-  for (let i = 0; i < 20 && linesHover < 1; i++) {
-    const rs = await page.evaluate(() => {
-      const box = document.querySelector('[aria-label="Live Ops Map — Berlin"]').getBoundingClientRect();
-      const clear = (x, y) => {
-        const el = document.elementFromPoint(box.x + x, box.y + y);
-        return !!el && el.classList?.contains('maplibregl-canvas');
-      };
-      const r =
-        window.__lmPick.riders.find((r) => clear(r.x, r.y)) ?? window.__lmPick.riders[0];
-      return { r, box };
-    });
-    if (!rs.r) break;
-    await page.mouse.move(rs.box.x + rs.r.x, rs.box.y + rs.r.y, { steps: 2 });
-    await sleep(200);
-    linesHover = await page.evaluate(() => window.__lmIcons.lines);
+  // yang membawa order — rider idle tidak punya garis). Posisi FRESH tiap
+  // percobaan. Bila sistem memang tanpa assignment aktif → SKIP (bukan fail).
+  const sysLines = await page.evaluate(() => window.__lmMap.setZoom(14.9)).then(() =>
+    sleep(1200).then(() => page.evaluate(() => window.__lmIcons.lines)),
+  );
+  await page.evaluate(() => window.__lmMap.setZoom(12.15));
+  await sleep(800);
+  if (sysLines === 0) {
+    log('hover_line_focus', 'SKIP (sistem tanpa assignment aktif)');
+  } else {
+    let linesHover = 0;
+    for (let i = 0; i < 30 && linesHover < 1; i++) {
+      const rs = await page.evaluate(() => {
+        const box = document.querySelector('[aria-label="Live Ops Map — Berlin"]').getBoundingClientRect();
+        const clear = (x, y) => {
+          const el = document.elementFromPoint(box.x + x, box.y + y);
+          return !!el && el.classList?.contains('maplibregl-canvas');
+        };
+        const r =
+          window.__lmPick.riders.find((r) => clear(r.x, r.y)) ?? window.__lmPick.riders[0];
+        return { r, box };
+      });
+      if (!rs.r) break;
+      await page.mouse.move(rs.box.x + rs.r.x, rs.box.y + rs.r.y, { steps: 2 });
+      await sleep(200);
+      linesHover = await page.evaluate(() => window.__lmIcons.lines);
+    }
+    log('hover_line_focus', linesHover >= 1 ? `ok (${linesHover} garis saat hover)` : `GAGAL: ${linesHover}`);
   }
-  log('hover_line_focus', linesHover >= 1 ? `ok (${linesHover} garis saat hover)` : `GAGAL: ${linesHover}`);
   await page.mouse.click(pick.box.x + pick.rider.x, pick.box.y + pick.rider.y);
   await page.waitForSelector('[data-testid="live-inspect"]', { timeout: 5000 });
   log('live_inspect_card', 'ok');
