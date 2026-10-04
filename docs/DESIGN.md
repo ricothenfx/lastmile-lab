@@ -6,7 +6,8 @@
 
 ## 1. Konsep
 
-**Mission Control / Air Traffic Control untuk delivery.** Dark theme, data mengalir
+**Mission Control / Air Traffic Control untuk delivery.** Dark theme (default) dengan
+**tema light opsional** (tombol sun/moon di TopBar, ADR D26), data mengalir
 terus, gerakan selalu bermakna. Reviewer harus merasa melihat pusat komando operasi
 nyata — bukan dashboard tutorial.
 
@@ -32,14 +33,53 @@ nyata — bukan dashboard tutorial.
 | `status.coral` | `#FB7185` | Kritis/SLO violation, kill-node, surge ekstrem |
 | `status.violet` | `#8B5CF6` | Rider delivering, elemen "in-flight" |
 | `map.water` | `#0F1B2D` | Area air peta |
-| `map.road` | `#223047` | Jalan peta (glow halus saat zoom) |
-| `map.roadGlow` | `#2E4265` | Glow jalan major saat zoom (fase 8) |
+| `map.road` | `#2B3B58` | Jalan peta (naik dari `#223047` agar terbaca di zoom default — D26) |
+| `map.roadGlow` | `#35496E` | Glow jalan major saat zoom (fase 8) |
 | `map.label` | `#94A3B8` | Label jalan minor (fase 8; = text.secondary, AA 7,4×) |
 | `map.labelMajor` | `#CBD5E1` | Label jalan major (fase 8, AA 12,7×) |
 | `zone.hot` | gradien `#FBBF24 → #FB7185` | Heatmap zona panas (bernapas) — terimplementasi fase 8 |
 
-**Kontras:** semua kombinasi teks/surface wajib lolos WCAG AA. Dark theme bukan alasan
-kontras rendah.
+### Palet light (tema kedua, ADR D26)
+Hue identik dengan dark; aksen/status digelapkan satu step agar teks berwarna tetap
+WCAG AA di surface terang. Aktif via `[data-theme="light"]` pada `<html>` (diset
+pre-paint; persist di localStorage `pulse.theme`). Semua warna tetap lewat token —
+komponen tidak boleh hardcode tema.
+
+| Token | Light | Catatan |
+|---|---|---|
+| `bg.base` / `bg.raised` / `bg.overlay` | `#F8FAFC` / `#FFFFFF` / `#F1F5F9` | surface terang |
+| `border.subtle` | `#E2E8F0` | divider |
+| `text.primary` / `secondary` / `muted` | `#0F172A` / `#475569` / `#64748B` | AA terpenuhi |
+| `accent.cyan` | `#0E7490` | cyan-700 (AA 4,8×) |
+| `accent.lime` | `#4D7C0F` | lime-700 |
+| `status.amber` | `#B45309` | amber-700 |
+| `status.coral` | `#BE123C` | rose-700 |
+| `status.violet` | `#6D28D9` | violet-700 |
+| `map.water` | `#C9E2F5` | air peta terang |
+| `map.road` / `roadGlow` | `#C4CFDB` / `#D8E0EA` | jalan di latar terang |
+| `map.label` / `labelMajor` | `#5A6B80` / `#26334A` | AA 5,5× / 13× |
+
+## 2.5 Bahasa simbol peta (fase 10, ADR D26)
+
+Satu jenis entitas = satu **bentuk**, warna hanya lapis kedua (ramah buta warna).
+Semua digambar sprite Path2D pre-render 2× di loop rAF peta yang sama — tanpa
+aset gambar, tanpa dependensi, nol rAF baru.
+
+| Simbol | Entitas | Makna warna |
+|---|---|---|
+| **Motor** (menghadap arah gerak) | rider | lime idle · amber to pickup · cyan pickup · violet delivering |
+| **Garpu-pisau** (titik pickup) | order waiting/assigned | cyan waiting · amber assigned |
+| **Rumah** (titik dropoff) | order in-transit | violet |
+| Titik amber samar | POI kuliner OSM (1 419, `pois.geojson`) | konteks kepadatan resto, z13+ |
+
+Aturan pendamping: rider idle digambar redup tanpa glow (yang aktif menonjol);
+garis assignment dashed hanya untuk entitas di-hover/dipilih, semua garis muncul
+saat zoom ≥ 14.5; komposit heatmap/glow mengikuti tema (`lighter` di dark,
+`multiply` + alpha lebih rendah di light); label kawasan (`places.geojson`) tampil
+sejak z11 lalu mundur saat label jalan mengambil alih.
+
+**Kontras:** semua kombinasi teks/surface wajib lolos WCAG AA **di kedua tema**.
+Tema gelap/terang bukan alasan kontras rendah.
 
 ## 3. Tipografi
 

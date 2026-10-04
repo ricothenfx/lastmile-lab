@@ -4,9 +4,49 @@ import Link from 'next/link';
 import { memo } from 'react';
 import type { Snapshot } from '@/lib/protocol';
 import type { OpsMode } from '@/lib/useOpsStream';
+import { toggleTheme } from '@/lib/theme';
 import StatusPill from './StatusPill';
 
 const fmt = new Intl.NumberFormat('en-US');
+
+/** Ikon tema via CSS (bukan state) — nol re-render, nol hydration mismatch. */
+function ThemeToggle() {
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      title="Switch between dark and light map & dashboard theme"
+      aria-label="Toggle dark or light theme"
+      className="flex h-[26px] w-[26px] items-center justify-center rounded-pill border border-line-subtle bg-surface-overlay text-ink-secondary transition-colors duration-fast hover:border-accent-cyan/60 hover:text-accent-cyan"
+    >
+      {/* Matahari: tampil saat dark (klik → light). Bulan: sebaliknya. */}
+      <svg
+        aria-hidden
+        className="theme-icon-sun h-[14px] w-[14px]"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+      </svg>
+      <svg
+        aria-hidden
+        className="theme-icon-moon h-[14px] w-[14px]"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    </button>
+  );
+}
 
 function Ticker({ label, value, tone }: { label: string; value: number | string; tone?: 'coral' }) {
   return (
@@ -63,6 +103,7 @@ function TopBarImpl({
           <Ticker label="Active" value={stats ? stats.ac : '—'} />
           <Ticker label="Delivered" value={stats ? stats.dl : '—'} />
         </div>
+        <ThemeToggle />
         <Link
           href="/interview"
           title="Questions an interviewer would ask — with answers from the repo"

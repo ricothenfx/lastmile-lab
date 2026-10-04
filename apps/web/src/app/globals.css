@@ -6,6 +6,10 @@
   color-scheme: dark;
 }
 
+[data-theme='light'] {
+  color-scheme: light;
+}
+
 html,
 body {
   height: 100%;
@@ -26,6 +30,20 @@ body {
 }
 .maplibregl-ctrl-attrib-button {
   filter: invert(0.8);
+}
+[data-theme='light'] .maplibregl-ctrl-attrib-button {
+  filter: none;
+}
+
+/* Toggle tema: ikon menunjukkan tema TUJUAN (sun di dark, moon di light). */
+.theme-icon-moon {
+  display: none;
+}
+[data-theme='light'] .theme-icon-sun {
+  display: none;
+}
+[data-theme='light'] .theme-icon-moon {
+  display: block;
 }
 .maplibregl-canvas {
   outline: none;

@@ -18,14 +18,16 @@ const SECTIONS: { h: string; rows: [string, string][] }[] = [
   {
     h: 'The map',
     rows: [
-      ['Rider dots', 'idle (lime) · to pickup (amber) · pickup (cyan) · delivering (violet). They move on a live 10 Hz feed.'],
-      ['Order dots', 'cyan with a radar pulse = waiting for a rider; small violet dot = dropoff in progress.'],
-      ['Dashed lines', 'a live assignment: amber = rider heading to pickup, violet = rider delivering.'],
-      ['Hover a dot', 'quick info card: rider status, carried order, distance to target — right on the map.'],
-      ['Click a dot', 'live: an inspect card with order, age and route. Replay: the full card including the dispatch decision reason.'],
-      ['Street names', 'zoom in (scroll) — major roads label first (from 13), minor streets from zoom 14.'],
+      ['Motorcycles', 'each rider is a motorcycle facing its direction of travel: lime = idle · amber = to pickup · cyan = picking up · violet = delivering.'],
+      ['Restaurants & houses', 'fork-and-knife icon = order waiting (cyan) or assigned (amber) at the restaurant pickup; house icon = customer dropoff being delivered to (violet).'],
+      ['Dashed lines', 'a live assignment: amber = rider heading to pickup, violet = rider delivering. Hover or click a symbol to always see its line; zoom in to see all of them.'],
+      ['Restaurants layer', 'faint amber dots = real culinary POIs from OpenStreetMap (zoom in).'],
+      ['Hover a symbol', 'quick info card: rider status, carried order, distance to target — right on the map.'],
+      ['Click a symbol', 'live: an inspect card with order, age and route. Replay: the full card including the dispatch decision reason.'],
+      ['Street & area names', 'districts (MITTE, KREUZBERG…) appear right away; street names fade in as you zoom — major roads from zoom ~12, minor streets from ~13.4.'],
       ['Breathing glow', 'order density per ~500 m cell; it brightens and breathes faster as surge rises. No orders = no heat.'],
       ['Delivery burst', 'a short violet ring = an order delivered; a faint coral ring = an order expired.'],
+      ['Dark / light', 'the sun/moon button in the top bar switches the whole dashboard and map between themes; your choice is remembered.'],
     ],
   },
   {

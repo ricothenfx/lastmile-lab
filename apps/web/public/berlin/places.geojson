@@ -1,0 +1,66 @@
+{
+  "type": "FeatureCollection",
+  "attribution": "© OpenStreetMap contributors",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "MITTE", "kind": "district" },
+      "geometry": { "type": "Point", "coordinates": [13.4094, 52.5208] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "KREUZBERG", "kind": "district" },
+      "geometry": { "type": "Point", "coordinates": [13.4034, 52.4986] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "FRIEDRICHSHAIN", "kind": "district" },
+      "geometry": { "type": "Point", "coordinates": [13.448, 52.5158] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "PRENZLAUER BERG", "kind": "district" },
+      "geometry": { "type": "Point", "coordinates": [13.4193, 52.5356] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Alexanderplatz", "kind": "place" },
+      "geometry": { "type": "Point", "coordinates": [13.4132, 52.5219] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Potsdamer Platz", "kind": "place" },
+      "geometry": { "type": "Point", "coordinates": [13.375, 52.5096] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Checkpoint Charlie", "kind": "place" },
+      "geometry": { "type": "Point", "coordinates": [13.3903, 52.5078] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Hackescher Markt", "kind": "place" },
+      "geometry": { "type": "Point", "coordinates": [13.4034, 52.5229] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Rotes Rathaus", "kind": "place" },
+      "geometry": { "type": "Point", "coordinates": [13.4024, 52.5191] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Rosenthaler Platz", "kind": "place" },
+      "geometry": { "type": "Point", "coordinates": [13.4021, 52.5303] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Warschauer Straße", "kind": "place" },
+      "geometry": { "type": "Point", "coordinates": [13.4495, 52.5063] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Schlesisches Tor", "kind": "place" },
+      "geometry": { "type": "Point", "coordinates": [13.4385, 52.4976] }
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import { tokens, cssVarsBlock } from '@/lib/tokens';
+import { initThemeScript } from '@/lib/theme';
 import './globals.css';
 
 const inter = Inter({
@@ -28,6 +29,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${mono.variable}`}>
       <head>
+        {/* Tema pre-paint (ADR D26): dark default / light tersimpan — tanpa flash. */}
+        <script dangerouslySetInnerHTML={{ __html: initThemeScript }} />
         {/* Design tokens dari src/lib/tokens.ts — satu sumber kebenaran. */}
         <style dangerouslySetInnerHTML={{ __html: cssVarsBlock }} />
       </head>

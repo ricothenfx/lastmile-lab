@@ -9,17 +9,13 @@
   PRODUKSI** (verify-all `--target=prod` pasca-push: **27 PASS / 0 FAIL**
   — `/interview` live: 36 Q&A / 36 sitasi; peta fase 8: label/glow/heat/
   hover semua lolos di produksi; surge dipulihkan ×1; console 0).
-- **Kondisi:** **FASE 9 SELESAI 2026-10-02** (sesi 14): satu command
-  memeriksa 16 suite (map/interact/heat/bursts/kpi/replay/offline/interview/
-  copilot/a11y/perf/console + chaos/lab/demo khusus local) — 33 PASS / 0
-  FAIL, mutasi dipulihkan (surge ×1, demo stop, strategy-lab self-heal
-  3,9 s). Halaman `/interview` = 36 Q&A / 8 kategori, 36/36 sitasi ADR /
-  angka terukur, statis tanpa backend, link INTERVIEW di TopBar. **Catatan
-  lingkungan:** Vercel Security Checkpoint mulai 403 untuk IP VPS ini
-  (browser manusia & UptimeRobot tetap lolos) — verifikasi prod memakai
-  build produksi identik; runbook §6 diperbarui. Fase 8 (peta: nama jalan
-  OSM, glow, heatmap D25, burst, hover/klik inspector — 23 check ALL
-  PASSED) tetap utuh, detail di log di bawah.
+- **Kondisi:** **peta diperbarui 2026-10-04 (sesi 15, ADR D26)** atas
+  laporan pemilik: simbol kini sesuai objek (motor ber-arah, ikon resto,
+  ikon rumah), garis assignment hanya saat hover/zoom-in, nama jalan +
+  kawasan + POI kuliner terlihat di zoom default, dan tema dark/light
+  (tombol sun/moon, persist localStorage) — 22 check ALL PASSED
+  (`reports/phase-10-ui-verify.mjs` + `phase10-*.png`), detail di log.
+  Fase 9 (QA suite 16 suite 33 PASS, `/interview`) & fase 8 tetap utuh.
 - **Langkah berikutnya:** sisa aksi pemilik: monitor keyword UptimeRobot,
   verifikasi 60fps laptop fisik. Verifikasi otonom kapan pun:
   `scripts/verify-all.mjs --target=prod|local`.
@@ -53,6 +49,49 @@
    playback lab hanya rAF saat PLAY ditekan.
 
 ## Log
+
+### 2026-10-04 — Bahasa simbol peta (motor/resto/rumah) + tema dark/light (sesi 15)
+
+Laporan pemilik: semua simbol peta berbentuk dot sehingga rider/resto/pelanggan
+tak bisa dibedakan, garis assignment terlalu banyak, tidak ada nama jalan, dan
+tema gelap jadi satu-satunya pilihan. Permintaan: simbol sesuai objeknya (motor
+dengan arah hadap, ikon resto, ikon pelanggan) + tombol dark/light. Implementasi
+frontend-only, ADR **D26**:
+
+- **Simbol = bentuk, bukan cuma warna**: rider = sprite **motor** Path2D
+  (pre-render 2×, warna per status) **dirotasi menghadap arah gerak** (heading
+  prev→posisi interpolasi; rider belum bergerak menghadap target); order
+  waiting/assigned = ikon **garpu-pisau** di titik pickup (cyan/amber); order
+  in-transit = ikon **rumah** di titik dropoff (violet); rider idle redup tanpa
+  glow (yang aktif menonjol). Nol dependensi/aset gambar, nol rAF baru
+  (terukur 18–40/2 s idle).
+- **Declutter garis**: dashed line hanya untuk entitas di-hover/dipilih; semua
+  garis muncul saat zoom ≥ 14,5. Pelajaran verifikasi: `maxBounds` meng-clamp
+  zoom-min ke ±13,4 di viewport lebar — threshold di bawah itu tidak pernah
+  aktif (check pertama GAGAL dan memunculkan fakta ini).
+- **Nama jalan & kawasan di zoom default**: label major fade-in mulai z12,2
+  (sebelumnya z13 — tak pernah terlihat karena clamp di atas), jalan dinaikkan
+  kontrasnya (#223047→#2B3B58), label kawasan 4 distrik + 8 landmark
+  (`places.geojson` statis), layer POI kuliner 1.419 titik dari graph
+  (`scripts/export-pois.mjs` → `pois.geojson`, circle samar z13+). ADR D12
+  tetap: nol tile/font provider.
+- **Tema dark/light**: dua palet token penuh di `tokens.ts` (objek live), CSS
+  vars kedua tema + skrip pre-paint `data-theme` di layout (localStorage →
+  prefers-color-scheme → dark, tanpa flash), MapLibre via `setPaintProperty`
+  (tanpa reload style), komposit canvas per tema (`lighter` dark / `multiply`
+  light — heatmap tak lagi menutupi peta terang), tombol sun/moon TopBar
+  (ikon via CSS = nol hydration mismatch), aksen light digelapkan satu step
+  agar AA terjaga. Legend & HelpOverlay ditulis ulang mengikuti simbol baru.
+- **Verifikasi** (`reports/phase-10-ui-verify.mjs`, 22 check ALL PASSED —
+  bukti `reports/phase10-*.png`): ikon motor=100==riders, resto+house==orders,
+  label jalan & kawasan & POI ter-render, gating garis (0 di default → 34–100
+  di z14,9), toggle+persist tema (body & map paint berubah), hover→1 garis,
+  tooltip/inspect/replay/responsive regresi bebas, console 0, rAF idle 18–40,
+  reduced-motion aman, ikon rumah terverifikasi di state in-transit nyata.
+- **Ops**: state sim produksi terdegradasi (±19 jam dibiarkan ×10+RAIN —
+  84/100 rider beku, in_transit 0 permanen; bukan bug kode — backend tak
+  disentuh sejak 2 Okt). `docker restart lastmile-rider-sim` → state sehat
+  (P50 62 s, queue 0), surge/weather dipulihkan ×1/cerah.
 
 ### 2026-10-02 — Fase 9: Autonomous QA suite + halaman Interview (sesi 14)
 

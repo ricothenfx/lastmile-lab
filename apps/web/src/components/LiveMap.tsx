@@ -3,7 +3,8 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import type { Map as MLMap, StyleSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { riderStatusColor, tokens } from '@/lib/tokens';
+import { riderStatusColor, tokens, type Palette } from '@/lib/tokens';
+import { isLightTheme, subscribeTheme } from '@/lib/theme';
 import { fmtDist, haversineM } from '@/lib/geo';
 import {
   ORDER_STATUS,
@@ -48,6 +49,19 @@ const EXPIRE_LIFE_MS = 450;
 const BURST_MAX = 64;
 // Lompatan waktu (scrub mundur/maju besar) → reset tanpa spawn burst.
 const BURST_GAP_MS = 8000;
+
+// Fase 10 — bahasa ikon (ADR D26): satu jenis entitas = satu bentuk.
+// Rider = motor (menghadap arah gerak), order waiting/assigned = ikon restoran
+// di titik pickup, order in-transit = rumah di titik dropoff.
+const SPRITE_SCALE = 2;
+const MOTOR_PX_ACTIVE = 23;
+const MOTOR_PX_IDLE = 19;
+const RESTO_PX = 16;
+const HOUSE_PX = 15;
+// Garis assignment penuh hanya saat user benar-benar zoom-in. Catatan:
+// maxBounds meng-clamp zoom MINIMUM ke ~13.4 pada viewport lebar (bbox harus
+// memenuhi layar) — jadi threshold harus di ATAS clamp, bukan di sekitarnya.
+const LINE_ZOOM_MIN = 14.5;
 
 const RIDER_LABEL = ['IDLE', 'TO PICKUP', 'PICKUP', 'DELIVERING'] as const;
 const RIDER_CLS = [
@@ -96,16 +110,98 @@ function makeHeatSprite(color: string): HTMLCanvasElement {
   return c;
 }
 
-function buildStyle(): StyleSpecification {
-  const t = tokens.color;
+/** Kanvas sprite tajam (dirender 2×, digambar terskala). */
+function makeSprite(units: number, draw: (g: CanvasRenderingContext2D) => void): HTMLCanvasElement {
+  const S = units * SPRITE_SCALE;
+  const c = document.createElement('canvas');
+  c.width = S;
+  c.height = S;
+  const g = c.getContext('2d')!;
+  g.scale(SPRITE_SCALE, SPRITE_SCALE);
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  draw(g);
+  return c;
+}
+
+/** Motor (skuter) menghadap KANAN — angle 0 = +x; dirotasi per heading rider. */
+function strokeMotor(g: CanvasRenderingContext2D, color: string): void {
+  g.strokeStyle = color;
+  g.lineWidth = 2.6;
+  g.beginPath();
+  g.arc(7, 21, 3.6, 0, Math.PI * 2); // roda belakang
+  g.stroke();
+  g.beginPath();
+  g.arc(25, 21, 3.6, 0, Math.PI * 2); // roda depan
+  g.stroke();
+  g.beginPath();
+  g.moveTo(19.5, 7); // stang
+  g.lineTo(22.5, 7);
+  g.moveTo(21, 7); // kolom kemudi → garpu depan
+  g.lineTo(26.5, 13);
+  g.lineTo(25, 21);
+  g.moveTo(4, 12.5); // jok
+  g.lineTo(10.5, 12.5);
+  g.moveTo(5.5, 13.5); // rangka jok → hub roda belakang
+  g.lineTo(7, 21);
+  g.moveTo(10.5, 12.5); // jok → dek → kolom belakang
+  g.lineTo(12.5, 17);
+  g.lineTo(18.5, 17);
+  g.lineTo(26.5, 13);
+  g.stroke();
+}
+
+/** Alat makan (garpu + pisau) — simbol restoran / titik pickup order. */
+function strokeResto(g: CanvasRenderingContext2D, color: string): void {
+  g.strokeStyle = color;
+  g.lineWidth = 1.9;
+  g.beginPath();
+  g.moveTo(7.4, 4.5); // garpu: 2 tine
+  g.lineTo(7.4, 9.2);
+  g.moveTo(10.6, 4.5);
+  g.lineTo(10.6, 9.2);
+  g.moveTo(7.4, 9.2); // mangkuk garpu
+  g.quadraticCurveTo(7.4, 11.8, 9, 11.8);
+  g.quadraticCurveTo(10.6, 11.8, 10.6, 9.2);
+  g.moveTo(9, 11.8); // gagang garpu
+  g.lineTo(9, 19.5);
+  g.moveTo(15, 19.5); // pisau: mata pisau melengkung
+  g.lineTo(15, 4.5);
+  g.moveTo(15, 4.5);
+  g.bezierCurveTo(17.8, 6.3, 17.8, 10, 15.2, 11.8);
+  g.stroke();
+}
+
+/** Rumah — simbol pelanggan / titik dropoff order. */
+function strokeHouse(g: CanvasRenderingContext2D, color: string): void {
+  g.strokeStyle = color;
+  g.lineWidth = 2.1;
+  g.beginPath();
+  g.moveTo(4, 12.2); // atap
+  g.lineTo(12, 5);
+  g.lineTo(20, 12.2);
+  g.moveTo(6.2, 10.6); // badan
+  g.lineTo(6.2, 19.4);
+  g.lineTo(17.8, 19.4);
+  g.lineTo(17.8, 10.6);
+  g.moveTo(10.2, 19.4); // pintu
+  g.lineTo(10.2, 14.2);
+  g.lineTo(13.8, 14.2);
+  g.lineTo(13.8, 19.4);
+  g.stroke();
+}
+
+function buildStyle(t: Palette): StyleSpecification {
   return {
     version: 8,
-    // Glyph self-hosted (fase 8): fontstack "Inter" dari public/fonts/inter/
+    // Glyph self-hosted (fase 8): fontstack "Inter" dari public/fonts/Inter/
     // — tanpa font/tile provider eksternal (ADR D12 tetap utuh).
     glyphs: '/fonts/{fontstack}/{range}.pbf',
     sources: {
       water: { type: 'geojson', data: '/berlin/water.geojson' },
       roads: { type: 'geojson', data: '/berlin/roads.geojson' },
+      pois: { type: 'geojson', data: '/berlin/pois.geojson' },
+      places: { type: 'geojson', data: '/berlin/places.geojson' },
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': t.bgBase } },
@@ -133,8 +229,8 @@ function buildStyle(): StyleSpecification {
         filter: ['==', ['get', 'c'], 0],
         paint: {
           'line-color': t.mapRoad,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.6, 14, 1.6, 17, 3.4],
-          'line-opacity': 0.72,
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.9, 14, 1.8, 17, 3.4],
+          'line-opacity': 0.78,
         },
       },
       {
@@ -147,7 +243,7 @@ function buildStyle(): StyleSpecification {
         paint: {
           'line-color': t.mapRoadGlow,
           'line-width': ['interpolate', ['linear'], ['zoom'], 11, 3, 15, 10, 17, 16],
-          'line-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.8, 0.16, 15.5, 0.3],
+          'line-opacity': ['interpolate', ['linear'], ['zoom'], 12, 0, 13, 0.14, 15.5, 0.3],
         },
       },
       {
@@ -157,23 +253,83 @@ function buildStyle(): StyleSpecification {
         filter: ['==', ['get', 'c'], 1],
         paint: {
           'line-color': t.mapRoad,
-          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1.2, 14, 2.8, 17, 6],
+          'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1.4, 14, 2.8, 17, 6],
           'line-opacity': 1,
         },
       },
       {
-        // Nama jalan major — muncul mulai z13 (fase 8; data `n` dari OSM).
+        // POI kuliner (konteks: kepadatan restoran) — samar, mulai z13.
+        id: 'poi-resto',
+        type: 'circle',
+        source: 'pois',
+        minzoom: 13,
+        paint: {
+          'circle-color': t.statusAmber,
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 13, 1.4, 16, 2.6],
+          'circle-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.8, 0.45],
+          'circle-stroke-width': 0,
+        },
+      },
+      {
+        // Label kawasan — orientasi besar di zoom rendah, mundur saat label
+        // jalan mengambil alih.
+        id: 'places-district',
+        type: 'symbol',
+        source: 'places',
+        filter: ['==', ['get', 'kind'], 'district'],
+        layout: {
+          'symbol-sort-key': 0,
+          'text-field': ['get', 'name'],
+          'text-font': ['Inter'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 11, 11.5, 13, 14],
+          'text-letter-spacing': 0.22,
+          'text-max-width': 7,
+        },
+        paint: {
+          'text-color': t.mapLabelMajor,
+          'text-halo-color': t.bgBase,
+          'text-halo-width': 1.4,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'], 10.9, 0, 11.5, 0.95, 13.4, 0.95, 14.2, 0,
+          ],
+        },
+      },
+      {
+        id: 'places-place',
+        type: 'symbol',
+        source: 'places',
+        filter: ['==', ['get', 'kind'], 'place'],
+        layout: {
+          'symbol-sort-key': 1,
+          'text-field': ['get', 'name'],
+          'text-font': ['Inter'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 11.5, 9.5, 13, 11.5],
+          'text-letter-spacing': 0.12,
+          'text-max-width': 7,
+        },
+        paint: {
+          'text-color': t.mapLabel,
+          'text-halo-color': t.bgBase,
+          'text-halo-width': 1.2,
+          'text-opacity': [
+            'interpolate', ['linear'], ['zoom'], 11.4, 0, 12, 0.9, 13.2, 0.9, 14, 0,
+          ],
+        },
+      },
+      {
+        // Nama jalan major — terlihat DI ZOOM DEFAULT (fade selesai z12.9;
+        // sebelumnya baru mulai z13 → pengguna tak pernah melihat label).
         id: 'roads-label-major',
         type: 'symbol',
         source: 'roads',
-        minzoom: 13,
+        minzoom: 12.2,
         filter: ['all', ['has', 'n'], ['==', ['get', 'c'], 1]],
         layout: {
           'symbol-placement': 'line',
-          'symbol-sort-key': 0,
+          'symbol-sort-key': 2,
           'text-field': ['get', 'n'],
           'text-font': ['Inter'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 13, 10, 17, 14.5],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 12.2, 9.5, 17, 14.5],
           'text-letter-spacing': 0.05,
           'text-max-width': 8,
         },
@@ -181,22 +337,22 @@ function buildStyle(): StyleSpecification {
           'text-color': t.mapLabelMajor,
           'text-halo-color': t.bgBase,
           'text-halo-width': 1.3,
-          'text-opacity': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.7, 1],
+          'text-opacity': ['interpolate', ['linear'], ['zoom'], 12.2, 0, 12.9, 1],
         },
       },
       {
-        // Nama jalan minor — muncul mulai z14, prioritas di bawah major.
+        // Nama jalan minor — mulai z13.4, prioritas di bawah major.
         id: 'roads-label-minor',
         type: 'symbol',
         source: 'roads',
-        minzoom: 14,
+        minzoom: 13.4,
         filter: ['all', ['has', 'n'], ['==', ['get', 'c'], 0]],
         layout: {
           'symbol-placement': 'line',
-          'symbol-sort-key': 1,
+          'symbol-sort-key': 3,
           'text-field': ['get', 'n'],
           'text-font': ['Inter'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 14, 8.5, 17, 12],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 13.4, 8.5, 17, 12],
           'text-letter-spacing': 0.03,
           'text-max-width': 8,
         },
@@ -204,11 +360,39 @@ function buildStyle(): StyleSpecification {
           'text-color': t.mapLabel,
           'text-halo-color': t.bgBase,
           'text-halo-width': 1.1,
-          'text-opacity': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.7, 1],
+          'text-opacity': ['interpolate', ['linear'], ['zoom'], 13.4, 0, 14.1, 1],
         },
       },
     ],
   };
+}
+
+/** Terapkan palet baru ke paint peta tanpa reload style (setPaintProperty). */
+function applyThemeToMap(map: MLMap, t: Palette): void {
+  const sets: [string, string, unknown][] = [
+    ['bg', 'background-color', t.bgBase],
+    ['water-fill', 'fill-color', t.mapWater],
+    ['water-line', 'line-color', t.mapWater],
+    ['roads-minor', 'line-color', t.mapRoad],
+    ['roads-glow', 'line-color', t.mapRoadGlow],
+    ['roads-major', 'line-color', t.mapRoad],
+    ['poi-resto', 'circle-color', t.statusAmber],
+    ['roads-label-major', 'text-color', t.mapLabelMajor],
+    ['roads-label-major', 'text-halo-color', t.bgBase],
+    ['roads-label-minor', 'text-color', t.mapLabel],
+    ['roads-label-minor', 'text-halo-color', t.bgBase],
+    ['places-district', 'text-color', t.mapLabelMajor],
+    ['places-district', 'text-halo-color', t.bgBase],
+    ['places-place', 'text-color', t.mapLabel],
+    ['places-place', 'text-halo-color', t.bgBase],
+  ];
+  for (const [layer, prop, value] of sets) {
+    try {
+      map.setPaintProperty(layer, prop, value);
+    } catch {
+      /* style belum termuat — buildStyle berikutnya sudah pakai palet baru */
+    }
+  }
 }
 
 /** Entitas di bawah pointer (hover). */
@@ -309,6 +493,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
     let map: MLMap | null = null;
     let raf = 0;
     let ro: ResizeObserver | null = null;
+    let unsubTheme: (() => void) | null = null;
 
     const canvas = document.createElement('canvas');
     canvas.style.position = 'absolute';
@@ -317,18 +502,39 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
     canvas.style.height = '100%';
     canvas.style.pointerEvents = 'none';
     // Wajib: maplibre meng-append canvas WebGL-nya SETELAH overlay ini
-    // (sama-sama absolute) — tanpa z-index eksplisit peta menutupi semua
+    // (sama-sama absolute) — tanpa z-index eksplisit peta menutup semua
     // dot/garis yang digambar (bug produksi 2026-10-02: buffer berisi
     // puluhan ribu piksel entitas tapi tak terlihat).
     canvas.style.zIndex = '1';
     container.appendChild(canvas);
     const ctx = canvas.getContext('2d')!;
 
-    const glows = riderStatusColor.map(makeGlowSprite);
-    const heatAmber = makeHeatSprite(tokens.color.statusAmber);
-    const heatCoral = makeHeatSprite(tokens.color.statusCoral);
+    // --- sprite (dibangun dari palet aktif; di-rebuild saat tema berganti) ---
+    let glows: HTMLCanvasElement[] = [];
+    let heatAmber: HTMLCanvasElement;
+    let heatCoral: HTMLCanvasElement;
+    let motorSprites: HTMLCanvasElement[] = [];
+    let restoSprites: HTMLCanvasElement[] = []; // [waiting=cyan, assigned=amber]
+    let houseSprite: HTMLCanvasElement;
+    const buildSprites = () => {
+      const t = tokens.color;
+      glows = riderStatusColor.map(makeGlowSprite);
+      heatAmber = makeHeatSprite(t.statusAmber);
+      heatCoral = makeHeatSprite(t.statusCoral);
+      motorSprites = riderStatusColor.map((c) => makeSprite(32, (g) => strokeMotor(g, c)));
+      restoSprites = [
+        makeSprite(24, (g) => strokeResto(g, t.accentCyan)),
+        makeSprite(24, (g) => strokeResto(g, t.statusAmber)),
+      ];
+      houseSprite = makeSprite(24, (g) => strokeHouse(g, t.statusViolet));
+    };
+    buildSprites();
+
     const trails = new Map<number, number[][]>();
     const pulseSeen = new Map<string, number>();
+    // Tema aktif — dibaca via closure (bukan DOM per frame); komposit heatmap
+    // & glow berbeda: 'lighter' hanya untuk latar gelap.
+    let themeLight = isLightTheme();
     // Fase 8 — state antar-frame untuk burst & zona panas.
     const knownOrders = new Map<string, { s: number; lat: number; lon: number }>();
     const bursts: Burst[] = [];
@@ -336,6 +542,8 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
     let burstExpired = 0;
     let lastFrameT: number | null = null;
     let dpr = 1;
+    // Fase 10 — heading terakhir per rider (radian, ruang layar; 0 = timur).
+    const headings = new Map<number, number>();
 
     // Guard render on-demand (Fase 5): frame replay statis (pause/scrub)
     // hanya digambar ulang saat key frame berubah ATAU peta/viewport
@@ -388,7 +596,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
       if (cancelled) return;
       map = new maplibregl.Map({
         container,
-        style: buildStyle(),
+        style: buildStyle(tokens.color),
         center: CENTER,
         zoom: BASE_ZOOM,
         minZoom: 10.8,
@@ -409,6 +617,14 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
       map.touchZoomRotate.disableRotation();
       // Hook verifikasi E2E: instansi peta untuk probe style/label headless.
       (window as unknown as { __lmMap?: unknown }).__lmMap = map;
+
+      // Tema (ADR D26): terapkan palet baru ke paint peta + rebuild sprite.
+      unsubTheme = subscribeTheme(() => {
+        if (map) applyThemeToMap(map, tokens.color);
+        buildSprites();
+        themeLight = isLightTheme();
+        dirty = true;
+      });
 
       const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
 
@@ -522,10 +738,23 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
           positions.set(r.i, riderPos(prevIdx.get(r.i), r, alpha));
         }
         pickData = { riders: new Map(), orders: [] };
+        // Fase 10 — zoom mengatur densitas informasi: garis assignment hanya
+        // saat zoom-in; di zoom rendah cukup heatmap + ikon.
+        const zoom = map.getZoom();
+        const showLines = zoom >= LINE_ZOOM_MIN;
+        const focus = new Set<string>();
+        if (hoverRef.current) {
+          focus.add(hoverRef.current.kind === 'rider' ? `r${hoverRef.current.id}` : `o${hoverRef.current.id}`);
+        }
+        if (selKey) focus.add(selKey.kind === 'rider' ? `r${selKey.id}` : `o${selKey.id}`);
+        let linesDrawn = 0;
+        let motorCount = 0;
+        let restoCount = 0;
+        let houseCount = 0;
 
         // --- zona panas (fase 8): densitas order aktif per grid ±500 m ---
         // Intensitas mengikuti surge nyata (st.su); bernapas pelan; reduced-
-        // motion = statis. Digambar sebelum entitas (di bawah semua dot).
+        // motion = statis. Digambar sebelum entitas (di bawah semua ikon).
         const su = pair.next.st?.su ?? 1;
         {
           const surgeT = Math.min(1, Math.max(0, (su - 1) / 9));
@@ -545,7 +774,10 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
               reduced
                 ? 1
                 : 1 + 0.16 * Math.sin((now * 2 * Math.PI) / HEAT_PERIOD_MS) * Math.min(1, surgeT * 3);
-            ctx.globalCompositeOperation = 'lighter';
+            // Light: 'multiply' (menggelapkan hangat, khas peta terang);
+            // dark: 'lighter' (glow neun). Alpha diringankan di light.
+            ctx.globalCompositeOperation = themeLight ? 'multiply' : 'lighter';
+            const heatAlphaScale = themeLight ? 0.55 : 1;
             for (const c of cells.values()) {
               if (c.n < HEAT_MIN_ORDERS) continue;
               if (c.n > maxN) maxN = c.n;
@@ -553,7 +785,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
               if (p.x < -120 || p.y < -120 || p.x > w + 120 || p.y > h + 120) continue;
               const base = 0.05 + 0.3 * surgeT;
               const boost = Math.min(0.14, (c.n - HEAT_MIN_ORDERS) * 0.015);
-              const a = (base + boost) * breath;
+              const a = (base + boost) * breath * heatAlphaScale;
               alphaSum += a;
               const size = 90 + Math.min(40, c.n * 4);
               ctx.globalAlpha = a;
@@ -690,12 +922,15 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
           trails.clear();
         }
 
-        // --- garis assignment dashed (rider → pickup / dropoff) ---
+        // --- garis assignment (fase 10: declutter) ---
+        // Default: HANYA untuk entitas yang di-hover/dipilih. Saat zoom-in
+        // (>= LINE_ZOOM_MIN) semua garis ikut tampil.
         const orderById = new Map<string, OrderPt>();
         for (const o of pair.next.o) orderById.set(o.i, o);
         ctx.setLineDash([6, 6]);
         ctx.lineWidth = 1.5;
         for (const link of pair.next.l) {
+          if (!showLines && !focus.has(`r${link.r}`) && !focus.has(`o${link.o}`)) continue;
           const o = orderById.get(link.o);
           const pos = positions.get(link.r);
           if (!o || !pos) continue;
@@ -711,22 +946,23 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
           ctx.moveTo(rp.x, rp.y);
           ctx.lineTo(tp.x, tp.y);
           ctx.stroke();
+          linesDrawn += 1;
         }
         ctx.setLineDash([]);
         ctx.globalAlpha = 1;
 
-        // --- order: pulsa radar saat masuk + titik pickup/dropoff ---
+        // --- order: pulsa radar saat masuk + ikon restoran/rumah (fase 10) ---
         for (const o of pair.next.o) {
-          const waiting = o.s !== ORDER_STATUS.inTransit;
-          if (waiting) {
+          if (o.s !== ORDER_STATUS.inTransit) {
             const p = map.project([o.po, o.pa]);
             pickData.orders.push({ id: o.i, x: p.x, y: p.y });
-            if (!pulseSeen.has(o.i)) {
+            // Pulsa radar hanya untuk order baru MENUNGGU (belum assigned).
+            if (o.s === ORDER_STATUS.waiting && !pulseSeen.has(o.i)) {
               pulseSeen.set(o.i, now);
               if (pulseSeen.size > 900) pulseSeen.clear();
             }
-            const started = pulseSeen.get(o.i) ?? now;
-            if (!reduced) {
+            const started = pulseSeen.get(o.i);
+            if (!reduced && o.s === ORDER_STATUS.waiting && started !== undefined) {
               const age = now - started;
               if (age < PULSE_MS * 2) {
                 for (const offset of [0, PULSE_MS * 0.35]) {
@@ -736,56 +972,89 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
                   ctx.strokeStyle = tokens.color.accentCyan;
                   ctx.lineWidth = 1.6;
                   ctx.beginPath();
-                  ctx.arc(p.x, p.y, 4 + t * 16, 0, Math.PI * 2);
+                  ctx.arc(p.x, p.y, 5 + t * 16, 0, Math.PI * 2);
                   ctx.stroke();
                 }
               }
             }
-            ctx.globalAlpha = 0.95;
-            ctx.fillStyle =
-              o.s === ORDER_STATUS.assigned ? tokens.color.statusAmber : tokens.color.accentCyan;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-            ctx.fill();
+            // Ikon restoran: cyan = menunggu rider, amber = sudah assigned.
+            const sprite = restoSprites[o.s === ORDER_STATUS.assigned ? 1 : 0];
+            ctx.globalAlpha = 0.96;
+            ctx.drawImage(sprite, p.x - RESTO_PX / 2, p.y - RESTO_PX / 2, RESTO_PX, RESTO_PX);
+            restoCount += 1;
           } else {
             const p = map.project([o.do, o.da]);
             pickData.orders.push({ id: o.i, x: p.x, y: p.y });
-            ctx.globalAlpha = 0.5;
-            ctx.fillStyle = tokens.color.statusViolet;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, 2.4, 0, Math.PI * 2);
-            ctx.fill();
+            // Ikon rumah: dropoff / pelanggan sedang diantar.
+            ctx.globalAlpha = 0.9;
+            ctx.drawImage(houseSprite, p.x - HOUSE_PX / 2, p.y - HOUSE_PX / 2, HOUSE_PX, HOUSE_PX);
+            houseCount += 1;
           }
         }
         ctx.globalAlpha = 1;
 
-        // --- rider: glow sprite + titik status ---
-        ctx.globalCompositeOperation = 'lighter';
+        // --- rider: glow (aktif) + motor menghadap arah gerak (fase 10) ---
+        const targetByRider = new Map<number, [number, number]>();
+        for (const link of pair.next.l) {
+          const o = orderById.get(link.o);
+          if (o) {
+            targetByRider.set(
+              link.r,
+              o.s === ORDER_STATUS.inTransit ? [o.da, o.do] : [o.pa, o.po],
+            );
+          }
+        }
         for (const r of pair.next.r) {
           const pos = positions.get(r.i);
           if (!pos) continue;
           const p = map.project([pos[1], pos[0]]);
           pickData.riders.set(r.i, [p.x, p.y]);
-          const color = riderStatusColor[r.s] ?? tokens.color.accentLime;
-          const glow = glows[r.s] ?? glows[0];
-          ctx.drawImage(glow, p.x - 13, p.y - 13, 26, 26);
-          ctx.globalCompositeOperation = 'source-over';
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 3.4, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.globalCompositeOperation = 'lighter';
+          // Heading: arah prev→posisi terinterpolasi di ruang layar (stabil
+          // thd kamera — rotasi peta dinonaktifkan). Rider yang belum
+          // bergerak menghadap target assignmentnya.
+          const prevR = prevIdx.get(r.i);
+          if (prevR) {
+            const pp = map.project([prevR.lo, prevR.la]);
+            const dx = p.x - pp.x;
+            const dy = p.y - pp.y;
+            if (Math.hypot(dx, dy) > 0.6) headings.set(r.i, Math.atan2(dy, dx));
+          }
+          if (!headings.has(r.i)) {
+            const tgt = targetByRider.get(r.i);
+            if (tgt) {
+              const tp = map.project([tgt[1], tgt[0]]);
+              headings.set(r.i, Math.atan2(tp.y - p.y, tp.x - p.x));
+            }
+          }
+          const angle = headings.get(r.i) ?? 0;
+          const idle = r.s === 0;
+          if (!idle) {
+            const glow = glows[r.s] ?? glows[0];
+            // Dark: glow aditif; light: halo biasa (lighter → putih pudar).
+            ctx.globalCompositeOperation = themeLight ? 'source-over' : 'lighter';
+            ctx.globalAlpha = themeLight ? 0.5 : 1;
+            ctx.drawImage(glow, p.x - 13, p.y - 13, 26, 26);
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1;
+          }
+          const size = idle ? MOTOR_PX_IDLE : MOTOR_PX_ACTIVE;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(angle);
+          ctx.globalAlpha = idle ? 0.62 : 1;
+          ctx.drawImage(motorSprites[r.s] ?? motorSprites[0], -size / 2, -size / 2, size, size);
+          ctx.restore();
+          motorCount += 1;
         }
-        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
 
         // --- cincin highlight entri terpilih (inspect) ---
-        const sel = streamRef.current.selected;
-        if (sel) {
+        if (selKey) {
           let sx = 0;
           let sy = 0;
           let found = false;
-          if (sel.kind === 'rider') {
-            const pos = positions.get(sel.id as number);
+          if (selKey.kind === 'rider') {
+            const pos = positions.get(selKey.id as number);
             if (pos) {
               const p = map.project([pos[1], pos[0]]);
               sx = p.x;
@@ -793,7 +1062,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
               found = true;
             }
           } else {
-            const so = orderById.get(sel.id as string);
+            const so = orderById.get(selKey.id as string);
             if (so) {
               const target =
                 so.s === ORDER_STATUS.inTransit ? [so.da, so.do] : [so.pa, so.po];
@@ -807,7 +1076,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
             ctx.strokeStyle = tokens.color.statusCoral;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.arc(sx, sy, 9, 0, Math.PI * 2);
+            ctx.arc(sx, sy, 10, 0, Math.PI * 2);
             ctx.stroke();
           }
         }
@@ -841,7 +1110,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
             ctx.strokeStyle = tokens.color.accentCyan;
             ctx.lineWidth = 1.5;
             ctx.beginPath();
-            ctx.arc(hx, hy, 7.5, 0, Math.PI * 2);
+            ctx.arc(hx, hy, 9, 0, Math.PI * 2);
             ctx.stroke();
           }
         }
@@ -867,10 +1136,19 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
         }
 
         // Hook deterministik untuk verifikasi E2E: posisi px rider/order
-        // terakhir (hit-test hover/klik diuji headless).
+        // terakhir (hit-test hover/klik diuji headless) + statistik ikon.
         (window as unknown as { __lmPick?: unknown }).__lmPick = {
           riders: Array.from(pickData.riders.entries(), ([id, [x, y]]) => ({ id, x, y })).slice(0, 80),
           orders: pickData.orders.slice(0, 80),
+        };
+        (window as unknown as { __lmIcons?: unknown }).__lmIcons = {
+          motor: motorCount,
+          resto: restoCount,
+          house: houseCount,
+          lines: linesDrawn,
+          zoom: Math.round(zoom * 100) / 100,
+          riders: pair.next.r.length,
+          orders: pair.next.o.length,
         };
       };
 
@@ -885,10 +1163,12 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
       cancelled = true;
       cancelAnimationFrame(raf);
       ro?.disconnect();
+      unsubTheme?.();
       trails.clear();
       pulseSeen.clear();
       knownOrders.clear();
       bursts.length = 0;
+      headings.clear();
       firstSeenRef.current.clear();
       canvas.remove();
       map?.remove();
@@ -913,7 +1193,7 @@ function LiveMapImpl({ streamRef }: { streamRef: React.MutableRefObject<LiveStre
         // Tailwind — tanpa ini tinggi kontainer 0 dan peta tidak tergambar.
         style={{ position: 'absolute' }}
         aria-label="Live Ops Map — Berlin"
-        title="Live Berlin ops: dots = riders (hover or click one for detail), street names appear when you zoom in, breathing glow = order density following surge"
+        title="Live Berlin ops: motorcycles = riders (they face their direction of travel), restaurant icons = pickups, houses = dropoffs; hover or click one for detail; street names appear as you zoom"
         role="img"
       />
       {hover && (
